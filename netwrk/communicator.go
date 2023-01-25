@@ -15,7 +15,6 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/core"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/log"
-	"github.com/UNH-DistSyS/UNH-CLT/request"
 	"github.com/UNH-DistSyS/UNH-CLT/utils/hlc"
 )
 
@@ -624,18 +623,18 @@ func (c *basicCommunicator) handleResends() {
 }
 
 // TODO: make this more general?
-func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgReplyWrapper) {
-	switch m.Msg.(type) {
-	case request.CqlRequest:
-		// make the client request go through upper layers in parallel
-		// the requests will get serialized later when transformed to replication operations
-		go func() {
-			cqlReq := m.Msg.(request.CqlRequest)
-			cqlReq.C = make(chan request.CqlReply, 1)
-			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
-			cqlReply := <-cqlReq.C
-			m.Reply(cqlReply)
-			log.Debugf("replied to client")
-		}()
-	}
-}
+// func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgReplyWrapper) {
+// 	switch m.Msg.(type) {
+// 	case request.CqlRequest:
+// 		// make the client request go through upper layers in parallel
+// 		// the requests will get serialized later when transformed to replication operations
+// 		go func() {
+// 			cqlReq := m.Msg.(request.CqlRequest)
+// 			cqlReq.C = make(chan request.CqlReply, 1)
+// 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
+// 			cqlReply := <-cqlReq.C
+// 			m.Reply(cqlReply)
+// 			log.Debugf("replied to client")
+// 		}()
+// 	}
+// }
