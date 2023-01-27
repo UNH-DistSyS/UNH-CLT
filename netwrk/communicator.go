@@ -40,26 +40,6 @@ type Communicator interface {
 	// SendAndAwaitReply sends message and awaits a corresponding reply
 	SendAndAwaitReply(ctx context.Context, to ids.ID, msg interface{}) (chan Message, error)
 
-	// MulticastZone send msg to all nodes in the zone
-	MulticastZone(zone uint8, selfloop bool, m interface{})
-
-	// MulticastQuorum sends msg to random number of nodes
-	MulticastQuorum(quorum int, selfloop bool, m interface{})
-
-	// MulticastReplicationRegion sends to all peers within the Replication Region of the node
-	// ownZone is the current zone of the node
-	MulticastReplicationGroup(selfloop bool, msg interface{})
-
-	MulticastReplicationGroupAndAwaitReplies(ctx context.Context, selfloop bool, msg interface{}) (chan Message, error)
-
-	// MulticastZoneRelays sends message to one node from each zone
-	// message is marked with relay header, causing
-	// each recipient to resent the message in its zone
-	MulticastZoneRelays(zones []uint8, msg interface{})
-
-	// MulticastOutsideRegionsRelays similar as above, but relay broadcasts to all zones not in region
-	MulticastRemoteZoneRelays(msg interface{})
-
 	// Broadcast send to all peers
 	Broadcast(m interface{}, selfloop bool)
 
@@ -622,19 +602,19 @@ func (c *basicCommunicator) handleResends() {
 	}
 }
 
-// TODO: make this more general?
-// func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgReplyWrapper) {
-// 	switch m.Msg.(type) {
-// 	case request.CqlRequest:
-// 		// make the client request go through upper layers in parallel
-// 		// the requests will get serialized later when transformed to replication operations
-// 		go func() {
-// 			cqlReq := m.Msg.(request.CqlRequest)
-// 			cqlReq.C = make(chan request.CqlReply, 1)
-// 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
-// 			cqlReply := <-cqlReq.C
-// 			m.Reply(cqlReply)
-// 			log.Debugf("replied to client")
-// 		}()
-// 	}
-// }
+// TODO: Just leave here for compile
+func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgReplyWrapper) {
+	// switch m.Msg.(type) {
+	// case request.CqlRequest:
+	// 	// make the client request go through upper layers in parallel
+	// 	// the requests will get serialized later when transformed to replication operations
+	// 	go func() {
+	// 		cqlReq := m.Msg.(request.CqlRequest)
+	// 		cqlReq.C = make(chan request.CqlReply, 1)
+	// 		c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
+	// 		cqlReply := <-cqlReq.C
+	// 		m.Reply(cqlReply)
+	// 		log.Debugf("replied to client")
+	// 	}()
+	// }
+}

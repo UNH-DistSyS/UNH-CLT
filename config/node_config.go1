@@ -1,0 +1,24 @@
+package config
+
+import (
+	"sync"
+
+	"github.com/UNH-DistSyS/UNH-CLT/ids"
+)
+
+type ClusterMembershipConfig struct {
+	AddrsStr    map[string]string `json:"address"`     // address for node communication
+	Regions     map[uint8]string  `json:"regions"`     // map of regionIDs to a string label
+	RegionZones map[uint8][]uint8 `json:"regionZones"` // map of regionID to a list of zones in the region
+
+	/************************************************************************************************************
+	 * Here are config parameters derived from the json file
+	 ***********************************************************************************************************/
+
+	IDs            []ids.ID           // list of all IDs.
+	ZonesToNodeIds map[uint8][]ids.ID // map of zones to ids in these zones
+	Addrs          map[ids.ID]string  // address for node communication
+	HTTPAddrs      map[ids.ID]string  // address for http client communication
+
+	sync.RWMutex // mutex to protext configuration from concurrent access
+}
