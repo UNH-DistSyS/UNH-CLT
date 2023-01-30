@@ -148,12 +148,12 @@ func (c *basicCommunicator) AddTransportLink(t TransportLink, to ids.ID) {
 ************************************************************************/
 
 func (c *basicCommunicator) Reply(ctx context.Context, msg interface{}) error {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime)
 
 	meta := ctx.Value(CtxMeta)
 	switch ctxMeta := meta.(type) {
 	case *core.ContextMeta:
+		hlcTime := hlc.HLClock.Now()
+		hdr := newMsgHeader(c.id, hlcTime)
 		hdr.CycleId = ctxMeta.CurrentMessageCycleId
 		hdr.RequestId = ctxMeta.RequestID
 		hdr.Kind = MessageResponse

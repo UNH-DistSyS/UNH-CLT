@@ -27,28 +27,32 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 	}
 }
 
-func (m *Master) WaitForConnection() {
+func (m *Master) ConnectNodes() {
 }
 
 func (m *Master) BroadcastConfigs() {
 
 }
 
-func (m *Master) Start() {
+func (m *Master) TestForTime() {
 
 }
 
 func (m *Master) Stop() {
 
 }
+
+func (m *Master) WaitForResults() {
+
+}
+
 func (m *Master) RetriveData() {
 
 }
 
 func (m *Master) Run() {
-	m.WaitForConnection()
+	m.ConnectNodes()
 	m.BroadcastConfigs()
-	m.Start()
-	m.Stop()
-	m.RetriveData()
+	m.TestForTime()
+	m.WaitForResults()
 }
