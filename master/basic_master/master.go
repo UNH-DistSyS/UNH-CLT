@@ -1,8 +1,14 @@
-package master
+package basic_master
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
+	"github.com/UNH-DistSyS/UNH-CLT/log"
+	"github.com/UNH-DistSyS/UNH-CLT/msg"
 	"github.com/UNH-DistSyS/UNH-CLT/netwrk"
 	"github.com/UNH-DistSyS/UNH-CLT/operation_dispatcher"
 )
@@ -27,32 +33,32 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 	}
 }
 
-func (m *Master) ConnectNodes() {
+var wg sync.WaitGroup
+
+func (master *Master) HandleLogFile(ctx, m msg.LogMsg) {
+	// Handle File
+
+	// If success
+	wg.Done()
 }
+func (master *Master) Run() {
+	master.netman.Register(msg.LogMsg{}, master.HandleLogFile)
 
-func (m *Master) BroadcastConfigs() {
+	m := msg.MasterMsg{
+		MsgType: msg.CONFIG,
+		Cfg:     *master.cfg,
+	}
+	var ctx context.Context
+	_, err := master.netman.BroadcastAndAwaitReplies(ctx, false, m)
+	if err != nil {
+		log.Infof("error broadcasting msg")
+		return
+	}
+	time.Sleep(time.Second)
+	m.MsgType = msg.RUN
 
-}
-
-func (m *Master) TestForTime() {
-
-}
-
-func (m *Master) Stop() {
-
-}
-
-func (m *Master) WaitForResults() {
-
-}
-
-func (m *Master) RetriveData() {
-
-}
-
-func (m *Master) Run() {
-	m.ConnectNodes()
-	m.BroadcastConfigs()
-	m.TestForTime()
-	m.WaitForResults()
+	wg.Add(master.cfg.NumNode)
+	wg.Wait()
+	m.MsgType = msg.SHUTDOWN
+	master.netman.Broadcast(m, false)
 }
