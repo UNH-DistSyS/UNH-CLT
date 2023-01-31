@@ -75,12 +75,12 @@ func (n *Node) doHandleReply(ctx context.Context, m msg.Reply) {
 func (n *Node) HandlerMasterMsg(ctx context.Context, m msg.MasterMsg) {
 	switch m.MsgType {
 	case msg.CONFIG:
-		n.cfg = &m.Cfg
+		n.cfg.ClusterMembership = m.Cfg
 		n.master_id = &m.MasterID
 		n.nodes_id = m.NodesID
 		n.thinkTime = m.Cfg.ThinkTimeUS
 	case msg.RUN:
-		n.runtime <- n.cfg.RunTimeS
+		n.runtime <- n.cfg.ClusterMembership.RunTimeS
 	case msg.SHUTDOWN:
 		n.shutdown <- true
 	}
@@ -116,7 +116,7 @@ func (n *Node) Run() {
 		select {
 		case t := <-n.runtime:
 			var wg sync.WaitGroup
-			for i := 0; i < n.cfg.NumWriter; i++ {
+			for i := 0; i < n.cfg.ClusterMembership.NumWriter; i++ {
 				wg.Add(1)
 				go n.worker(t, &wg)
 			}

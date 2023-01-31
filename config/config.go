@@ -25,7 +25,6 @@ const (
 	REPAIR_MULTIPLE             = 5
 	DEFAULT_REPLACTION_PROTOCOL = "mpaxos"
 	DEFAULT_WAL_TYPE            = "memory"
-	BASIC_NODE                  = "basic"
 )
 
 /*******************************************************************************
@@ -44,10 +43,6 @@ var LocusDBConflictDomainsTableName = "locus_cds"
  */
 
 type Config struct {
-	NumNode           int                     `json:"Num_Node"`
-	NumWriter         int                     `json:"Num_Writer"`
-	ThinkTimeUS       int                     `json:"thinktime_us"`
-	RunTimeS          int                     `json:"run_time_s"`
 	NodeMode          string                  `json:"node_mode"`
 	ClusterMembership ClusterMembershipConfig `json:"cluster_membership"`
 

@@ -46,7 +46,7 @@ func (master *Master) Run() {
 
 	m := msg.MasterMsg{
 		MsgType: msg.CONFIG,
-		Cfg:     *master.cfg,
+		Cfg:     master.cfg.ClusterMembership,
 	}
 	var ctx context.Context
 	_, err := master.netman.BroadcastAndAwaitReplies(ctx, false, m)
@@ -57,7 +57,7 @@ func (master *Master) Run() {
 	time.Sleep(time.Second)
 	m.MsgType = msg.RUN
 
-	wg.Add(master.cfg.NumNode)
+	wg.Add(master.cfg.ClusterMembership.NumNode)
 	wg.Wait()
 	m.MsgType = msg.SHUTDOWN
 	master.netman.Broadcast(m, false)

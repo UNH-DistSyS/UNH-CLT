@@ -15,7 +15,7 @@ const (
 
 type MasterMsg struct {
 	MsgType   int8
-	Cfg       config.Config
+	Cfg       config.ClusterMembershipConfig
 	TimeStamp time.Time
 	MasterID  ids.ID
 	NodesID   []*ids.ID

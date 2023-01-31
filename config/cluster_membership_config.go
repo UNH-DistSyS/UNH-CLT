@@ -8,7 +8,16 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
+const (
+	BASIC_NODE = "basic"
+)
+
 type ClusterMembershipConfig struct {
+	NumNode     int `json:"Num_Node"`
+	NumWriter   int `json:"Num_Writer"`
+	ThinkTimeUS int `json:"thinktime_us"`
+	RunTimeS    int `json:"run_time_s"`
+
 	AddrsStr     map[string]string `json:"address"`      // address for node communication
 	HTTPAddrsStr map[string]string `json:"http_address"` // address for bench node_assembler communication
 
