@@ -2,6 +2,7 @@ package basic_node
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -22,6 +23,8 @@ type Node struct {
 	runtime   chan int
 	shutdown  chan bool
 	resendLog chan bool
+	info      [][]msg.INFO
+	mu        sync.Mutex
 }
 
 func NewNode(cfg *config.Config, identity *ids.ID) *Node {
@@ -42,10 +45,14 @@ func (n *Node) sendLog(to ids.ID) {
 	//TODO: big-file transfering
 }
 
-func (n *Node) sendAfter(to ids.ID, m interface{}, thinktime_us int) {
-	time.Sleep(time.Duration(thinktime_us) * time.Microsecond)
-	n.netman.Send(to, m)
+func (n *Node) dealLog() {
+	// TODO: sorting and calculating
 
+	// for wid, items := range n.info {
+	// 	for _, item := range items {
+
+	// 	}
+	// }
 }
 
 func (n *Node) HandlePropose(ctx context.Context, m msg.Propose) {
@@ -55,10 +62,12 @@ func (n *Node) HandlePropose(ctx context.Context, m msg.Propose) {
 func (n *Node) doHandlePropose(ctx context.Context, m msg.Propose) {
 	// TODO: handle propose message
 	msg := msg.Reply{
-		ID:        *n.me,
-		ProposeID: m.ProposeID,
-		Weight:    nil,
-		TimeStamp: time.Now(),
+		ID:               *n.me,
+		WorkerID:         m.WorkerID,
+		ProposeID:        m.ProposeID,
+		Weight:           nil,
+		TimeStampPropose: m.TimeStampPropose,
+		TimeStampReply:   time.Now(),
 	}
 	n.netman.Send(m.ID, msg)
 
@@ -70,6 +79,18 @@ func (n *Node) HandleReply(ctx context.Context, m msg.Reply) {
 
 func (n *Node) doHandleReply(ctx context.Context, m msg.Reply) {
 	// TODO: handle reply message, recording two timestamps
+	to_append := msg.INFO{
+		To:               m.ID,
+		Weight:           m.Weight,
+		ProposeID:        m.ProposeID,
+		TimeStampPropose: m.TimeStampPropose,
+		TimeStampReply:   m.TimeStampReply,
+		TimeStampFinish:  time.Now(),
+	}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.info[m.WorkerID] = append(n.info[m.WorkerID], to_append)
 }
 
 func (n *Node) HandlerMasterMsg(ctx context.Context, m msg.MasterMsg) {
@@ -79,29 +100,47 @@ func (n *Node) HandlerMasterMsg(ctx context.Context, m msg.MasterMsg) {
 		n.master_id = &m.MasterID
 		n.nodes_id = m.NodesID
 		n.thinkTime = m.Cfg.ThinkTimeUS
+		n.info = make([][]msg.INFO, n.cfg.ClusterMembership.NumWriter)
+		for i := 0; i < n.cfg.ClusterMembership.NumWriter; i++ {
+			n.info[i] = make([]msg.INFO, 0)
+		}
 	case msg.RUN:
 		n.runtime <- n.cfg.ClusterMembership.RunTimeS
 	case msg.SHUTDOWN:
 		n.shutdown <- true
 	}
+}
+
+func (n *Node) getRandomExcept(notme bool) *ids.ID {
+	for {
+		rand.Seed(time.Now().UnixNano())
+		to_return := n.nodes_id[rand.Intn(len(n.nodes_id))]
+		if notme && n.me == to_return {
+			continue
+		}
+		return to_return
+	}
 
 }
 
-func (n *Node) worker(t int, wg *sync.WaitGroup) {
+func (n *Node) worker(id int, t int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	ticker := time.NewTicker(time.Second * time.Duration(t))
+	thinkTicker := time.NewTicker(time.Microsecond * time.Duration(n.cfg.ClusterMembership.ThinkTimeUS))
 	for i := uint64(0); ; i++ {
 		select {
 		case <-ticker.C:
 			return
-		default:
+		case <-thinkTicker.C:
+			to := n.getRandomExcept(true)
 			m := msg.Propose{
-				ID:        *n.me,
-				ProposeID: i,
-				TimeStamp: time.Now(),
-				Weight:    nil,
+				ID:               *n.me,
+				WorkerID:         id,
+				ProposeID:        i,
+				TimeStampPropose: time.Now(),
+				Weight:           nil,
 			}
-			n.sendAfter(*n.me, m, n.thinkTime)
+			go n.netman.Send(*to, m)
 		}
 	}
 
@@ -118,9 +157,10 @@ func (n *Node) Run() {
 			var wg sync.WaitGroup
 			for i := 0; i < n.cfg.ClusterMembership.NumWriter; i++ {
 				wg.Add(1)
-				go n.worker(t, &wg)
+				go n.worker(i, t, &wg)
 			}
 			wg.Wait()
+			n.dealLog()
 			n.sendLog(*n.master_id)
 		case <-n.resendLog:
 			n.sendLog(*n.master_id)

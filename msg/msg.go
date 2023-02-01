@@ -27,14 +27,26 @@ type LogMsg struct {
 }
 
 type Propose struct {
-	ID        ids.ID
-	ProposeID uint64
-	TimeStamp time.Time
-	Weight    []string
+	ID               ids.ID
+	WorkerID         int
+	ProposeID        uint64
+	TimeStampPropose time.Time
+	Weight           []byte
 }
 type Reply struct {
-	ID        ids.ID
-	ProposeID uint64
-	TimeStamp time.Time
-	Weight    []string
+	ID               ids.ID
+	WorkerID         int
+	ProposeID        uint64
+	TimeStampPropose time.Time
+	TimeStampReply   time.Time
+	Weight           []byte
+}
+
+type INFO struct {
+	To               ids.ID
+	Weight           []byte
+	ProposeID        uint64
+	TimeStampPropose time.Time
+	TimeStampReply   time.Time
+	TimeStampFinish  time.Time
 }
