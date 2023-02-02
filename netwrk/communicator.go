@@ -61,7 +61,7 @@ type resendMessage struct {
 
 type basicCommunicator struct {
 	sync.RWMutex
-	id ids.ID // this node's ID
+	id ids.ID // this node's id
 
 	core.OperationDispatcher      // dispatcher for handling incoming messages
 	isClientSide             bool // whether this communicator is on the client-side of the application
@@ -82,7 +82,7 @@ type basicCommunicator struct {
 	emptyResponseChannels chan chan Message
 }
 
-// NewCommunicator returns a Communicator instance given config, self ID, and operation dispatcher
+// NewCommunicator returns a Communicator instance given config, self id, and operation dispatcher
 func NewCommunicator(cfg *config.Config, nodeId ids.ID, opDispatcher core.OperationDispatcher) Communicator {
 	communicator := &basicCommunicator{
 		id:                    nodeId,

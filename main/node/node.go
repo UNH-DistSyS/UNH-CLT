@@ -18,6 +18,6 @@ func main() {
 	flag.Parse()
 	id := ids.GetIDFromFlag()
 	cfg := config.LoadConfigFromFile(*configFile)
-	node := node_provider.NewNodeProvider(cfg, id)
+	node := node_provider.NewNode(cfg, id)
 	node.Run()
 }

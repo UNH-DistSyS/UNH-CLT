@@ -1,52 +1,51 @@
 package msg
 
 import (
-	"time"
-
+	"encoding/gob"
+	"fmt"
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
-const (
-	RUN int8 = iota
-	CONFIG
-	SHUTDOWN
-)
-
-type MasterMsg struct {
-	MsgType   int8
-	Cfg       config.ClusterMembershipConfig
-	TimeStamp time.Time
-	MasterID  ids.ID
-	NodesID   []*ids.ID
+func init() {
+	// messages
+	gob.Register(ConfigMsg{})
+	gob.Register(StartLatencyTest{})
+	gob.Register(StopLatencyTest{})
+	gob.Register(Ping{})
+	gob.Register(Pong{})
 }
 
-type LogMsg struct {
-	ID   ids.ID
-	FILE interface{}
+type ConfigMsg struct {
+	Cfg config.Config // used to overwrite the default config of the node with a config from master
 }
 
-type Propose struct {
-	ID               ids.ID
-	WorkerID         int
-	ProposeID        uint64
-	TimeStampPropose time.Time
-	Weight           []byte
-}
-type Reply struct {
-	ID               ids.ID
-	WorkerID         int
-	ProposeID        uint64
-	TimeStampPropose time.Time
-	TimeStampReply   time.Time
-	Weight           []byte
+func (c ConfigMsg) String() string {
+	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Cfg)
 }
 
-type INFO struct {
-	To               ids.ID
-	Weight           []byte
-	ProposeID        uint64
-	TimeStampPropose time.Time
-	TimeStampReply   time.Time
-	TimeStampFinish  time.Time
+type StartLatencyTest struct {
+}
+
+type StopLatencyTest struct {
+}
+
+type Ping struct {
+	Payload     []byte
+	SenderId    ids.ID
+	RoundNumber uint64
+}
+
+func (p Ping) String() string {
+	return fmt.Sprintf("Ping {RoundNum=%d, SenderID=%v}", p.RoundNumber, p.SenderId)
+}
+
+type Pong struct {
+	Payload        []byte
+	ReplyingNodeId ids.ID
+	RoundNumber    uint64
+}
+
+func (p Pong) String() string {
+	return fmt.Sprintf("Pong {RoundNum=%d, SenderID=%v}", p.RoundNumber, p.ReplyingNodeId)
 }

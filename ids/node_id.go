@@ -8,10 +8,10 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/log"
 )
 
-var id = flag.String("id", "1.1", "ID in format of Zone.Node. Default 1.1. For client ids add .c at the end: 1.1.c")
+var id = flag.String("id", "1.1", "id in format of Zone.Node. Default 1.1. For client ids add .c at the end: 1.1.c")
 
-// ID represents a generic identifier in format of Zone.Node
-//type ID string
+// id represents a generic identifier in format of Zone.Node
+//type id string
 
 type ID struct {
 	NodeId   uint8
@@ -58,7 +58,7 @@ func GetIDFromString(id string) *ID {
 		}
 		return &ID{ZoneId: uint8(zone), NodeId: uint8(node), IsClient: isClient}
 	} else {
-		log.Errorf("Could not parse ID %s", id)
+		log.Errorf("Could not parse id %s", id)
 		return nil
 	}
 }
