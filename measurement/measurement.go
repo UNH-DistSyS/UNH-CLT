@@ -12,9 +12,10 @@ import (
 var _startEpoch = (time.Date(2023, 0, 0, 0, 0, 0, 0, time.UTC)).UnixMicro()
 
 type Measurement struct {
+	clientId    *ids.ID
 	prefix      string
 	data        []measurementRow
-	fileCounter int32
+	fileCounter int
 }
 
 type measurementRow struct {
@@ -44,8 +45,9 @@ func flush() {
 
 }
 
-func CreateMeasurement(nodeId *ids.ID, csvPrefix string, listSize int32) *Measurement {
+func CreateMeasurement(nodeId *ids.ID, csvPrefix string, listSize int) *Measurement {
 	m := &Measurement{
+		clientId:    nodeId,
 		prefix:      csvPrefix,
 		data:        make([]measurementRow, listSize),
 		fileCounter: 0,
