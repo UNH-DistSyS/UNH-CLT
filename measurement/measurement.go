@@ -9,7 +9,7 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
-var _startEpoch = time.Date(2023, 0, 0, 0, 0, 0, 0, time.UTC)
+var _startEpoch = (time.Date(2023, 0, 0, 0, 0, 0, 0, time.UTC)).UnixMicro()
 
 type Measurement struct {
 	prefix      string
@@ -19,14 +19,21 @@ type Measurement struct {
 
 type measurementRow struct {
 	round  int64   //round ID
-	nodeID *ids.ID //remote node ID that is being measured
+	nodeId *ids.ID //remote node ID that is being measured
 	start  int64   //begin time, in microseconds
 	end    int64   //end time, in microseconds
 }
 
 func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
-	row := measurementRow{roundNumber, remoteNodeID, startTime, endTime}
+	row := measurementRow{
+		round:  roundNumber,
+		nodeId: remoteNodeID,
+		start:  startTime,
+		end:    endTime,
+	}
 	m.data = append(m.data, row)
+
+	//TODO: flush logic with file counter
 }
 
 /*
