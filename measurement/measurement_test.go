@@ -51,7 +51,6 @@ func TestCreateMeasurement(t *testing.T) {
 	listSizeTestParam := 10
 	m := NewMeasurement(listSizeTestParam)
 
-	//view stats
 	if DEBUG {
 		fmt.Printf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
 	}
@@ -75,7 +74,6 @@ func TestEpoch(t *testing.T) {
 	}
 }
 
-// IN PROGRESS
 func TestAddMeasurementOnce(t *testing.T) {
 	listSizeTestParam := 10
 	fakeNodeId := ids.GetIDFromFlag()
@@ -97,8 +95,6 @@ func TestAddMeasurementOnce(t *testing.T) {
 	if entry.end != e {
 		t.Fatalf("wrong end time recorded")
 	}
-
-	//if m.data[0]
 }
 
 func TestAddMeasurement100(t *testing.T) {
