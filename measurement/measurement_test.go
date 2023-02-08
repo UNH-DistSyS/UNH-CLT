@@ -53,14 +53,14 @@ func TestCreateMeasurement(t *testing.T) {
 
 	//view stats
 	if DEBUG {
-		fmt.Printf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.clientId.Int(), m.prefix, len(m.data))
+		fmt.Printf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
 	}
 
 	if m.fileCounter != 0 {
 		t.Fatalf("Measurement structure file counter not initialized to 0")
 	}
-	if len(m.data) != int(listSizeTestParam) {
-		t.Fatalf("length of initialized list is: %d, exepcted: %d", len(m.data), listSizeTestParam)
+	if len(m.data) != 0 {
+		t.Fatalf("length of initialized list is: %d, exepcted: %d", len(m.data), 0)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestAddMeasurementOnce(t *testing.T) {
 
 	entry := m.data[0]
 	if DEBUG {
-		fmt.Printf("Measurement: %d, %d, %d, %d, %d\n", m.clientId.Int(), entry.round, entry.remoteNodeId.Int(), entry.start, entry.end)
+		fmt.Printf("Measurement: %d, %d, %d, %d, %d\n", m.thisNodeId.Int(), entry.round, entry.remoteNodeId.Int(), entry.start, entry.end)
 	}
 
 	if entry.remoteNodeId.Int() != fakeNodeId.Int() {
@@ -129,8 +129,8 @@ func TestFlushCSV(t *testing.T) {
 		DoMeasurement(m, fakeNodeId)
 	}
 
-	if m.rowCounter != 20 {
-		t.Fatalf("Expected list size %d but got %d\n", 20, m.rowCounter)
+	if len(m.data) != 20 {
+		t.Fatalf("Expected list size %d but got %d\n", 20, len(m.data))
 	}
 	if m.fileCounter != 1 {
 		t.Fatalf("Expected file counter size %d but fot %d\n", 1, m.fileCounter)
@@ -148,6 +148,10 @@ func TestFlushCSV(t *testing.T) {
 	}
 
 	rows, _ := r.ReadAll()
+	if len(rows) != listSizeTestParam {
+		t.Fatalf("error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
+	}
+
 	for i := 0; i < len(rows); i++ {
 		//fmt.Println(rows[i])
 	}

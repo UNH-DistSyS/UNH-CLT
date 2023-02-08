@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
@@ -16,13 +17,13 @@ import (
 var _startEpoch = (time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)).UnixMicro()
 
 type Measurement struct {
-	clientId *ids.ID
-	prefix   string
-	data     []measurementRow
+	thisNodeId *ids.ID
+	prefix     string
+	data       []measurementRow
 
-	//internal variables for tracking
+	//internal variables for tracking/updating
+	mu          sync.Mutex
 	listLength  int
-	rowCounter  int
 	fileCounter int
 }
 
@@ -39,23 +40,23 @@ func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, st
 	modifiedEnd := endTime - _startEpoch
 
 	row := measurementRow{
-		thisNodeId:   m.clientId,
+		thisNodeId:   m.thisNodeId,
 		round:        roundNumber,
 		remoteNodeId: remoteNodeID,
 		start:        modifiedStart,
 		end:          modifiedEnd,
 	}
-	m.data[m.rowCounter] = row
-	m.rowCounter++
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data = append(m.data, row)
 
 	//flush list to csv if full
-	if m.rowCounter == m.listLength {
+	if len(m.data) == m.listLength {
 		go flush(m.data, m.prefix, m.fileCounter)
 
 		//reset internal list and update variables
-		m.rowCounter = 0
 		m.fileCounter++
-		m.data = make([]measurementRow, m.listLength)
+		m.data = make([]measurementRow, 0)
 	}
 }
 
@@ -73,19 +74,26 @@ func flush(data []measurementRow, prefix string, counter int) {
 	}
 
 	w := csv.NewWriter(file)
+	//write header
+	w.Write([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"})
 	for _, item := range data {
-		w.Write([]string{item.thisNodeId.String(), strconv.FormatInt(item.round, 10), item.remoteNodeId.String(), strconv.FormatInt(item.start, 10), strconv.FormatInt(item.end, 10)})
+		w.Write([]string{
+			item.thisNodeId.String(),
+			strconv.FormatInt(item.round, 10),
+			item.remoteNodeId.String(),
+			strconv.FormatInt(item.start, 10),
+			strconv.FormatInt(item.end, 10),
+		})
 	}
 	w.Flush()
 }
 
 func CreateMeasurement(nodeId *ids.ID, csvPrefix string, listSize int) *Measurement {
 	m := &Measurement{
-		clientId:    nodeId,
+		thisNodeId:  nodeId,
 		prefix:      csvPrefix,
-		data:        make([]measurementRow, listSize),
+		data:        make([]measurementRow, 0),
 		listLength:  listSize,
-		rowCounter:  0,
 		fileCounter: 0,
 	}
 
