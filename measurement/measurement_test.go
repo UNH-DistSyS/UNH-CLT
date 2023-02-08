@@ -143,6 +143,7 @@ func TestFlushCSV(t *testing.T) {
 		t.Fatalf("error: could not find csv file with appropriate name in current directory\n")
 	}
 	r := csv.NewReader(f)
+	//process header
 	if _, err := r.Read(); err != nil {
 		t.Fatalf("error: empty file\n")
 	}
@@ -150,9 +151,5 @@ func TestFlushCSV(t *testing.T) {
 	rows, _ := r.ReadAll()
 	if len(rows) != listSizeTestParam {
 		t.Fatalf("error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
-	}
-
-	for i := 0; i < len(rows); i++ {
-		//fmt.Println(rows[i])
 	}
 }
