@@ -62,20 +62,21 @@ func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, st
 
 /*
 * Measurement should flush data to a file after
-a certain threshold is reached.
-*/
+* a certain threshold is reached.
+ */
 func flush(data []measurementRow, prefix string, counter int) {
 	fileName := prefix + "_" + strconv.Itoa(counter) + ".csv"
 	file, err := os.Create(fileName)
 	defer file.Close()
 	if err != nil {
-		//TODO: decide output
-		log.Fatalf("Failed to create/open file %s", fileName)
+		log.Fatalf("Failed to create file %s", fileName)
 	}
 
 	w := csv.NewWriter(file)
+
 	//write header
 	w.Write([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"})
+
 	for _, item := range data {
 		w.Write([]string{
 			item.thisNodeId.String(),
