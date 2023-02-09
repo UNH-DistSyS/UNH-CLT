@@ -11,7 +11,7 @@ import (
 const (
 	PORT                      = 1735
 	CHAN_BUFFER_SIZE          = 1024 * 1
-	DEFAULT_RATE              = 10
+	DEFAULT_RATE              = 0 //used for testing if we have received the new cfg or not
 	OP_DISPATCHER_CONCURRENCY = 5
 	DEFAULT_PAYLOAD           = 1024
 	SELF_LOOP                 = true

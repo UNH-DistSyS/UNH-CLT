@@ -22,7 +22,7 @@ type Node struct {
 	mu       sync.Mutex
 	idx      uint64
 	stopCh   chan bool
-	recorded uint64 //for testing
+	recorded uint64 //for testing purporse
 	testing  bool
 }
 
@@ -59,7 +59,6 @@ func (n *Node) Run() {
 func (n *Node) HandleConfigMsg(ctx context.Context, msg msg.ConfigMsg) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	// TODO: manually merge received config into the default one. Do not just assign received config to n.Cfg
 	n.cfg.PayLoadSize = msg.Cfg.PayLoadSize
 	n.cfg.TestingRate = msg.Cfg.TestingRate
 	n.cfg.SelfLoop = msg.Cfg.SelfLoop
@@ -67,8 +66,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg msg.ConfigMsg) {
 }
 
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLatencyTest) {
-	// TODO: start the test. This probably will activate the test ticker
-	if n.cfg == nil {
+	if n.cfg.TestingRate == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
 		return
@@ -85,7 +83,6 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLaten
 }
 
 func (n *Node) HandleStopLatencyTest(ctx context.Context, msg msg.StopLatencyTest) {
-	// TODO: Stop the test. This should stop the ticker loop
 	n.stopCh <- true
 }
 
@@ -99,7 +96,6 @@ func (n *Node) HandlePing(ctx context.Context, pingMsg msg.Ping) {
  **********************************************************************************************************************/
 
 func (n *Node) senderTicker() {
-	// TODO: ticker loop. The loop will call broadcastPong at constant rate
 	rate := 1000 / n.cfg.TestingRate
 	ticker := time.NewTicker(time.Duration(rate * uint64(time.Microsecond)))
 	for {
@@ -126,7 +122,6 @@ func (n *Node) broadcastPong(startTimeMicroseconds int64, roundnumber uint64) {
 	defer cancel()
 	payload := make([]byte, n.cfg.PayLoadSize)
 	rand.Read(payload)
-	// TODO: fill the ping message
 	pingMsg := msg.Ping{
 		Payload:     payload,
 		SenderId:    *n.id,

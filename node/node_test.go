@@ -52,6 +52,7 @@ func TestHandleCfg(t *testing.T) {
 		nodes = append(nodes, *createNode(0, uint8(i)))
 	}
 	cfg := config.MakeDefaultConfig()
+	cfg.TestingRate = 10
 	cfgMsg := msg.ConfigMsg{
 		Cfg: *cfg,
 	}
@@ -78,6 +79,7 @@ func TestStartStop(t *testing.T) {
 		nodes[i].Run()
 	}
 	cfg := config.MakeDefaultConfig()
+	cfg.TestingRate = 10
 	cfgMsg := msg.ConfigMsg{
 		Cfg: *cfg,
 	}
