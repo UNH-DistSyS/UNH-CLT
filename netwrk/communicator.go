@@ -362,10 +362,10 @@ func (c *basicCommunicator) BroadcastAndAwaitReplies(ctx context.Context, selflo
 		hlcTime := hlc.HLClock.Now()
 		cycleId := atomic.AddUint64(&c.communicationCycleId, 1)
 		hdr := newMsgHeader(c.id, hlcTime).WithCycletId(cycleId)
-		if c.replGroupProvider == nil {
-			log.Errorf("Replication group provider is not set in the communicator on node %v", c.id)
-			return nil, errors.New("replication group provider is not set in the communicator")
-		}
+		// if c.replGroupProvider == nil {
+		// 	log.Errorf("Replication group provider is not set in the communicator on node %v", c.id)
+		// 	return nil, errors.New("replication group provider is not set in the communicator")
+		// }
 		respChan := c.getAvailableResponseChannel()
 		c.addPendingChanel(respChan, cycleId)
 		for id := range c.cfg.ClusterMembership.Addrs {

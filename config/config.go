@@ -13,6 +13,7 @@ const (
 	CHAN_BUFFER_SIZE          = 1024 * 1
 	DEFAULT_RATE              = 10
 	OP_DISPATCHER_CONCURRENCY = 5
+	DEFAULT_PAYLOAD           = 1024
 	SELF_LOOP                 = true
 )
 
@@ -25,6 +26,7 @@ type Config struct {
 	ChanBufferSize        int                     `json:"chan_buffer_size"`        // size of all internal channels used for passing work between layers/modules
 	NetBufferSize         int                     `json:"net_buffer_size"`         // size of network transfer buffers
 	OpDispatchConcurrency int                     `json:"op_dispatch_concurrency"` // concurrency level for concurrent dispatcher
+	PayLoadSize           int                     `json:"payload_size"`            // size of payload
 	SelfLoop              bool                    `json:"self_loop"`               // whether to send ping messages to self
 
 	TestingRate uint64 `json:"testing_rate"` // rate at which a node produces ping-pong rounds.
@@ -43,6 +45,7 @@ func MakeDefaultConfig() *Config {
 	config.TestingRate = DEFAULT_RATE
 	config.OpDispatchConcurrency = OP_DISPATCHER_CONCURRENCY
 	config.SelfLoop = SELF_LOOP
+	config.PayLoadSize = DEFAULT_PAYLOAD
 
 	config.RequestTimeoutMs = 900
 	config.RoundTimeoutMs = 400
