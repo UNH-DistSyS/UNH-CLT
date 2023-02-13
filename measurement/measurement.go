@@ -14,7 +14,7 @@ import (
 )
 
 // local Epoch equal to January 1, 2023 00:00:00 UTC
-const _startEpoch = 1672531200000000
+const _startEpoch int64 = 1672531200000000
 
 type Measurement struct {
 	thisNodeId *ids.ID
