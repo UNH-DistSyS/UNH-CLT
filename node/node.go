@@ -16,14 +16,14 @@ import (
 )
 
 type Node struct {
-	netman   netwrk.Communicator
-	cfg      *config.Config
-	id       *ids.ID
-	mu       sync.Mutex
-	idx      uint64
-	stopCh   chan bool
-	recorded uint64 //for testing purporse
-	testing  bool
+	netman                   netwrk.Communicator
+	cfg                      *config.Config
+	id                       *ids.ID
+	mu                       sync.Mutex
+	idx                      uint64
+	stopCh                   chan bool
+	recorded                 uint64 //for testing purporse, will be removed once mearsument is attached.
+	latencyTestingInProgress bool
 }
 
 func NewNode(cfg *config.Config, identity *ids.ID) *Node {
@@ -31,12 +31,12 @@ func NewNode(cfg *config.Config, identity *ids.ID) *Node {
 	netman := netwrk.NewCommunicator(cfg, *identity, incommingMsgOperationDispatcher)
 
 	n := &Node{
-		netman:  netman,
-		id:      identity,
-		stopCh:  make(chan bool),
-		idx:     0,
-		testing: false,
-		cfg:     cfg,
+		netman:                   netman,
+		id:                       identity,
+		stopCh:                   make(chan bool),
+		idx:                      0,
+		latencyTestingInProgress: false,
+		cfg:                      cfg,
 	}
 
 	n.netman.Register(msg.ConfigMsg{}, n.HandleConfigMsg)
@@ -72,12 +72,12 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLaten
 		return
 	}
 	n.mu.Lock()
-	if n.testing {
+	if n.latencyTestingInProgress {
 		n.mu.Unlock()
 		log.Errorf("Repeat Starting!")
 		return
 	}
-	n.testing = true
+	n.latencyTestingInProgress = true
 	n.mu.Unlock()
 	go n.senderTicker()
 }
@@ -103,20 +103,20 @@ func (n *Node) senderTicker() {
 		case <-n.stopCh:
 			//stop testing
 			n.mu.Lock()
-			n.testing = false
+			n.latencyTestingInProgress = false
 			n.mu.Unlock()
 			return
 		default:
 			<-ticker.C
 			timestamp := time.Now().UnixMicro()
-			go n.broadcastPong(timestamp, n.idx)
+			go n.broadcastPing(timestamp, n.idx)
 			n.idx++
 
 		}
 	}
 }
 
-func (n *Node) broadcastPong(startTimeMicroseconds int64, roundnumber uint64) {
+func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bool {
 	log.Debugf("Node %s is sending Pong", n.id)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(n.cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
@@ -132,7 +132,7 @@ func (n *Node) broadcastPong(startTimeMicroseconds int64, roundnumber uint64) {
 	if err != nil {
 		log.Errorf("Node %v error starting ping for round %d: %v", n.id, 0, err)
 		// give up
-		return
+		return false
 	}
 
 	expectedResponses := len(n.cfg.ClusterMembership.GetIds())
@@ -148,18 +148,20 @@ func (n *Node) broadcastPong(startTimeMicroseconds int64, roundnumber uint64) {
 			n.handlePong(startTimeMicroseconds, pong)
 			receivedResponses += 1
 			if expectedResponses == receivedResponses {
-				return
+				return true
 			}
 		case <-ctx.Done():
 			// we hit timeout waiting for replies.
 			log.Errorf("Node %v timeout receiving pong responses for round=%d: %v", n.id, 0, ctx.Err())
-			return
+			return false
 		}
 	}
 }
 
 func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg msg.Pong) {
 	// TODO: here we record the measurement
+
+	// The three lines of code are for testing, remove this once measurement is attached.
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.recorded = utils.Uint64Max(n.recorded, pongMsg.RoundNumber)

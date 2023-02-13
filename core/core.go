@@ -28,7 +28,7 @@ type ContextlessOperationDispatcher interface {
 }
 
 type ContextMeta struct {
-	RequestID ids.CommandID
+	// RequestID ids.CommandID
 
 	CurrentMessageSender  ids.ID // the sender of message/request the node is handling
 	CurrentMessageCycleId uint64

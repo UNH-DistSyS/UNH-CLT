@@ -120,3 +120,38 @@ func TestStartStop(t *testing.T) {
 		}
 	}
 }
+
+func TestBroadcastPing(t *testing.T) {
+	id1 := *ids.GetIDFromString("1.1")
+	id2 := *ids.GetIDFromString("1.2")
+	id3 := *ids.GetIDFromString("1.3")
+	testids := []ids.ID{id1, id2, id3}
+	setupNodeTests(t, testids)
+
+	for i := 0; i < 3; i++ {
+		nodes[i].Run()
+	}
+	cfg := config.MakeDefaultConfig()
+	cfg.TestingRate = 10
+	cfgMsg := msg.ConfigMsg{
+		Cfg: *cfg,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.CommunicationTimeoutMs)*time.Millisecond)
+	defer cancel()
+	for i := 0; i < 3; i++ {
+		nodes[i].HandleConfigMsg(ctx, cfgMsg)
+	}
+	for i := 0; i < 3; i++ {
+		if nodes[i].cfg.TestingRate == 0 {
+			t.Fatalf("Node %d still has old config", i)
+		}
+	}
+	for i := 0; i < 10; i++ {
+		for idx, node := range nodes {
+			ok := node.broadcastPing(time.Now().UnixMicro(), uint64(i))
+			if !ok {
+				t.Fatalf("Node %d failed at %v", idx, i)
+			}
+		}
+	}
+}
