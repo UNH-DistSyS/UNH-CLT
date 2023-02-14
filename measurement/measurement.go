@@ -9,12 +9,12 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
-var _startEpoch = (time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)).UnixMicro()
+// local Epoch equal to January 1, 2023 00:00:00 UTC
+const _startEpoch int64 = 1672531200000000
 
 type Measurement struct {
 	thisNodeId *ids.ID
@@ -56,7 +56,7 @@ func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, st
 
 		//reset internal list and update variables
 		m.fileCounter++
-		m.data = make([]measurementRow, 0)
+		m.data = make([]measurementRow, 0, m.listLength)
 	}
 }
 
@@ -89,11 +89,11 @@ func flush(data []measurementRow, prefix string, counter int) {
 	w.Flush()
 }
 
-func CreateMeasurement(nodeId *ids.ID, csvPrefix string, listSize int) *Measurement {
+func NewMeasurement(nodeId *ids.ID, csvPrefix string, listSize int) *Measurement {
 	m := &Measurement{
 		thisNodeId:  nodeId,
 		prefix:      csvPrefix,
-		data:        make([]measurementRow, 0),
+		data:        make([]measurementRow, 0, listSize),
 		listLength:  listSize,
 		fileCounter: 0,
 	}
