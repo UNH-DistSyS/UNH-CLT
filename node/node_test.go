@@ -1,5 +1,7 @@
 package node_provider
 
+// Only run tests one by one, don't run the package. Since there's no method for Nodes to stop.
+
 import (
 	"context"
 	"strconv"
@@ -9,20 +11,21 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/msg"
+	"github.com/stretchr/testify/assert"
 )
 
 var nodes []Node
 
 func createNode(zone uint8, node uint8) *Node {
 	cfg := config.MakeDefaultConfig()
-	cfg.TestingRate = 0
+	cfg.TestingRateS = 0
 	id := ids.NewID(zone, node)
 	return NewNode(cfg, id)
 }
 
 func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 	cfg := config.MakeDefaultConfig()
-	cfg.TestingRate = 0
+	cfg.TestingRateS = 0
 	cfg.CommunicationTimeoutMs = 200
 	for i, id := range nodeIds {
 		cfg.ClusterMembership.Addrs[id] = "tcp://127.0.0.1:" + strconv.Itoa(config.PORT+i)
@@ -35,24 +38,25 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 }
 
 func TestCreateNode(t *testing.T) {
+	nodes = make([]Node, 0)
 	node := createNode(0, 0)
-	if node == nil {
-		t.Fatalf("Failed to creating Node")
-	}
-	if node.cfg == nil {
-		t.Fatalf("Failed to creating Node, cfg nil")
-	}
-	if node.id == nil {
-		t.Fatalf("Failed to creating Node, nil id")
-	}
+	assert.NotEqual(t, nil, node, "Failed to creating Node")
+	assert.NotEqual(t, nil, node.cfg, "Failed to creating Node, cfg nil")
+	assert.NotEqual(t, nil, node.id, "Failed to creating Node, nil id")
 }
 
 func TestHandleCfg(t *testing.T) {
-	for i := 0; i < 3; i++ {
-		nodes = append(nodes, *createNode(0, uint8(i)))
+	nodes = make([]Node, 0)
+	id1 := *ids.GetIDFromString("1.1")
+	id2 := *ids.GetIDFromString("1.2")
+	id3 := *ids.GetIDFromString("1.3")
+	testids := []ids.ID{id1, id2, id3}
+	setupNodeTests(t, testids)
+	for _, node := range nodes {
+		node.Run()
 	}
 	cfg := config.MakeDefaultConfig()
-	cfg.TestingRate = 10
+	cfg.TestingRateS = 1000
 	cfgMsg := msg.ConfigMsg{
 		Cfg: *cfg,
 	}
@@ -62,13 +66,12 @@ func TestHandleCfg(t *testing.T) {
 		nodes[i].HandleConfigMsg(ctx, cfgMsg)
 	}
 	for i := 0; i < 3; i++ {
-		if nodes[i].cfg.TestingRate == 0 {
-			t.Fatalf("Node %d still has old config", i)
-		}
+		assert.NotEqual(t, 0, nodes[i].cfg.TestingRateS, "Node %d still has old config", i)
 	}
 }
 
 func TestStartStop(t *testing.T) {
+	nodes = make([]Node, 0)
 	id1 := *ids.GetIDFromString("1.1")
 	id2 := *ids.GetIDFromString("1.2")
 	id3 := *ids.GetIDFromString("1.3")
@@ -79,7 +82,7 @@ func TestStartStop(t *testing.T) {
 		nodes[i].Run()
 	}
 	cfg := config.MakeDefaultConfig()
-	cfg.TestingRate = 10
+	cfg.TestingRateS = 1000
 	cfgMsg := msg.ConfigMsg{
 		Cfg: *cfg,
 	}
@@ -89,9 +92,7 @@ func TestStartStop(t *testing.T) {
 		nodes[i].HandleConfigMsg(ctx, cfgMsg)
 	}
 	for i := 0; i < 3; i++ {
-		if nodes[i].cfg.TestingRate == 0 {
-			t.Fatalf("Node %d still has old config", i)
-		}
+		assert.NotEqual(t, 0, nodes[i].cfg.TestingRateS, "Node %d still has old config", i)
 	}
 	for i := 0; i < 3; i++ {
 		nodes[i].HandleStartLatencyTestMsg(ctx, msg.StartLatencyTest{})
@@ -100,6 +101,7 @@ func TestStartStop(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		nodes[i].HandleStopLatencyTest(ctx, msg.StopLatencyTest{})
 	}
+	time.Sleep(time.Second)
 	idxs := make([]uint64, 3)
 	for i := 0; i < 3; i++ {
 		idxs[i] = nodes[i].idx
@@ -115,13 +117,12 @@ func TestStartStop(t *testing.T) {
 		idxs3[i] = nodes[i].recorded
 	}
 	for i := 0; i < 3; i++ {
-		if idxs[i] < 100 || idxs[i] != idxs2[i] || idxs2[i] != idxs3[i]+1 {
-			t.Fatalf("Node %d failed start stop test with %v, %v, %v, %v", i, idxs[i], idxs2[i], idxs3[i], nodes)
-		}
+		assert.NotEqual(t, true, idxs[i] < 100 || idxs[i] != idxs2[i] || idxs2[i] != idxs3[i]+1, "Node %d failed start stop test with %v, %v, %v, %v", i, idxs[i], idxs2[i], idxs3[i], nodes)
 	}
 }
 
 func TestBroadcastPing(t *testing.T) {
+	nodes = make([]Node, 0)
 	id1 := *ids.GetIDFromString("1.1")
 	id2 := *ids.GetIDFromString("1.2")
 	id3 := *ids.GetIDFromString("1.3")
@@ -132,7 +133,7 @@ func TestBroadcastPing(t *testing.T) {
 		nodes[i].Run()
 	}
 	cfg := config.MakeDefaultConfig()
-	cfg.TestingRate = 10
+	cfg.TestingRateS = 1000
 	cfgMsg := msg.ConfigMsg{
 		Cfg: *cfg,
 	}
@@ -142,16 +143,13 @@ func TestBroadcastPing(t *testing.T) {
 		nodes[i].HandleConfigMsg(ctx, cfgMsg)
 	}
 	for i := 0; i < 3; i++ {
-		if nodes[i].cfg.TestingRate == 0 {
-			t.Fatalf("Node %d still has old config", i)
-		}
+		assert.NotEqual(t, 0, nodes[i].cfg.TestingRateS, "Node %d still has old config", i)
+
 	}
 	for i := 0; i < 10; i++ {
 		for idx, node := range nodes {
 			ok := node.broadcastPing(time.Now().UnixMicro(), uint64(i))
-			if !ok {
-				t.Fatalf("Node %d failed at %v", idx, i)
-			}
+			assert.Equal(t, true, ok, "Node %d failed at %v", idx, i)
 		}
 	}
 }

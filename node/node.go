@@ -20,6 +20,7 @@ type Node struct {
 	cfg                      *config.Config
 	id                       *ids.ID
 	mu                       sync.Mutex
+	muRand                   sync.Mutex
 	idx                      uint64
 	stopCh                   chan bool
 	recorded                 uint64 //for testing purporse, will be removed once mearsument is attached.
@@ -33,7 +34,7 @@ func NewNode(cfg *config.Config, identity *ids.ID) *Node {
 	n := &Node{
 		netman:                   netman,
 		id:                       identity,
-		stopCh:                   make(chan bool),
+		stopCh:                   make(chan bool, cfg.ChanBufferSize), //donot block
 		idx:                      0,
 		latencyTestingInProgress: false,
 		cfg:                      cfg,
@@ -43,13 +44,11 @@ func NewNode(cfg *config.Config, identity *ids.ID) *Node {
 	n.netman.Register(msg.StartLatencyTest{}, n.HandleStartLatencyTestMsg)
 	n.netman.Register(msg.StopLatencyTest{}, n.HandleStopLatencyTest)
 	n.netman.Register(msg.Ping{}, n.HandlePing) // this handler is for replying node
-
 	return n
 }
 
 func (n *Node) Run() {
 	n.netman.Run()
-
 }
 
 /***********************************************************************************************************************
@@ -60,13 +59,18 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg msg.ConfigMsg) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.cfg.PayLoadSize = msg.Cfg.PayLoadSize
-	n.cfg.TestingRate = msg.Cfg.TestingRate
+	n.cfg.TestingRateS = msg.Cfg.TestingRateS
 	n.cfg.SelfLoop = msg.Cfg.SelfLoop
+	n.cfg.ClusterMembership.Addrs = msg.Cfg.ClusterMembership.Addrs
+	n.cfg.ClusterMembership.AddrsStr = msg.Cfg.ClusterMembership.AddrsStr
+	n.cfg.ClusterMembership.IDs = msg.Cfg.ClusterMembership.IDs
+	n.cfg.ClusterMembership.ZonesToNodeIds = msg.Cfg.ClusterMembership.ZonesToNodeIds
+	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.netman.Reply(ctx, msg)
 }
 
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLatencyTest) {
-	if n.cfg.TestingRate == 0 {
+	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
 		return
@@ -96,7 +100,7 @@ func (n *Node) HandlePing(ctx context.Context, pingMsg msg.Ping) {
  **********************************************************************************************************************/
 
 func (n *Node) senderTicker() {
-	rate := 1000 / n.cfg.TestingRate
+	rate := 1000000 / n.cfg.TestingRateS
 	ticker := time.NewTicker(time.Duration(rate * uint64(time.Microsecond)))
 	for {
 		select {
@@ -121,7 +125,9 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(n.cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
 	payload := make([]byte, n.cfg.PayLoadSize)
+	n.muRand.Lock()
 	rand.Read(payload)
+	n.muRand.Unlock()
 	pingMsg := msg.Ping{
 		Payload:     payload,
 		SenderId:    *n.id,

@@ -181,11 +181,6 @@ func (c *basicCommunicator) SendAndAwaitReply(ctx context.Context, to ids.ID, ms
 		cycleId := atomic.AddUint64(&c.communicationCycleId, 1)
 		hlcTime := hlc.HLClock.Now()
 		hdr := newMsgHeader(c.id, hlcTime).WithCycletId(cycleId)
-		// meta := ctx.Value(CtxMeta)
-		// switch ctxMeta := meta.(type) {
-		// case *core.ContextMeta:
-		// 	// hdr.RequestId = ctxMeta.RequestID
-		// }
 
 		c.addPendingChanel(pendingChan, cycleId)
 		c.sendWithHeader(to, msg, hdr)

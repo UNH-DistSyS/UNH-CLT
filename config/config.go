@@ -29,12 +29,12 @@ type Config struct {
 	PayLoadSize           int                     `json:"payload_size"`            // size of payload
 	SelfLoop              bool                    `json:"self_loop"`               // whether to send ping messages to self
 
-	TestingRate uint64 `json:"testing_rate"` // rate at which a node produces ping-pong rounds.
+	TestingRateS uint64 `json:"testing_rate_s"` // rate at which a node produces ping-pong rounds.
 
 	// Server-side simeouts
 	CommunicationTimeoutMs int `json:"communication_timeout_ms"` // a timeout for a single attempt of round-trip communication
 	RoundTimeoutMs         int `json:"round_timeout_ms"`         // round timeout. A round may have multiple communication attempts
-	RequestTimeoutMs       int `json:"request_timeout_ms"`       // request timeout on server side
+	RequestTimeoutMs       int `json:"requet_timeout_ms"`        // request timeout on server side
 }
 
 func MakeDefaultConfig() *Config {
@@ -42,7 +42,7 @@ func MakeDefaultConfig() *Config {
 	config.ClusterMembership = *MakeDefaultClusterMembershipConfig()
 	config.ChanBufferSize = CHAN_BUFFER_SIZE
 	config.NetBufferSize = CHAN_BUFFER_SIZE * 10
-	config.TestingRate = DEFAULT_RATE
+	config.TestingRateS = DEFAULT_RATE
 	config.OpDispatchConcurrency = OP_DISPATCHER_CONCURRENCY
 	config.SelfLoop = SELF_LOOP
 	config.PayLoadSize = DEFAULT_PAYLOAD
