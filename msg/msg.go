@@ -18,11 +18,23 @@ func init() {
 }
 
 type ConfigMsg struct {
-	Cfg config.Config // used to overwrite the default config of the node with a config from master
+	// Cfg config.Config // used to overwrite the default config of the node with a config from master
+	PayLoadSize  int
+	TestingRateS uint64
+	SelfLoop     bool
+	Addrs        map[ids.ID]string
+}
+
+func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
+	c.PayLoadSize = cfg.PayLoadSize
+	c.TestingRateS = cfg.TestingRateS
+	c.SelfLoop = cfg.SelfLoop
+	c.Addrs = cfg.ClusterMembership.Addrs
+	return true
 }
 
 func (c ConfigMsg) String() string {
-	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Cfg)
+	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Addrs)
 }
 
 type StartLatencyTest struct {

@@ -9,7 +9,7 @@ import (
 
 // default values
 const (
-	PORT                      = 1735
+	PORT                      = 1734
 	CHAN_BUFFER_SIZE          = 1024 * 1
 	DEFAULT_RATE              = 0 //used for testing if we have received the new cfg or not
 	OP_DISPATCHER_CONCURRENCY = 5

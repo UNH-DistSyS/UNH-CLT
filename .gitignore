@@ -1,3 +1,5 @@
 .idea/*
 .vscode/*
 *_ignore*
+.DS_Store
+*/.DS_Store 

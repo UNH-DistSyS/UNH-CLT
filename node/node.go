@@ -58,36 +58,36 @@ func (n *Node) Run() {
 func (n *Node) HandleConfigMsg(ctx context.Context, msg msg.ConfigMsg) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.cfg.PayLoadSize = msg.Cfg.PayLoadSize
-	n.cfg.TestingRateS = msg.Cfg.TestingRateS
-	n.cfg.SelfLoop = msg.Cfg.SelfLoop
-	n.cfg.ClusterMembership.Addrs = msg.Cfg.ClusterMembership.Addrs
-	n.cfg.ClusterMembership.AddrsStr = msg.Cfg.ClusterMembership.AddrsStr
-	n.cfg.ClusterMembership.IDs = msg.Cfg.ClusterMembership.IDs
-	n.cfg.ClusterMembership.ZonesToNodeIds = msg.Cfg.ClusterMembership.ZonesToNodeIds
+	log.Debugf("Node %v received config msg", n.id)
+	n.cfg.PayLoadSize = msg.PayLoadSize
+	n.cfg.TestingRateS = msg.TestingRateS
+	n.cfg.SelfLoop = msg.SelfLoop
+	n.cfg.ClusterMembership.Addrs = msg.Addrs
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.netman.Reply(ctx, msg)
 }
 
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLatencyTest) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
 		return
 	}
-	n.mu.Lock()
+
 	if n.latencyTestingInProgress {
-		n.mu.Unlock()
 		log.Errorf("Repeat Starting!")
 		return
 	}
 	n.latencyTestingInProgress = true
-	n.mu.Unlock()
 	go n.senderTicker()
+	n.netman.Reply(ctx, msg)
 }
 
 func (n *Node) HandleStopLatencyTest(ctx context.Context, msg msg.StopLatencyTest) {
 	n.stopCh <- true
+	n.netman.Reply(ctx, msg)
 }
 
 func (n *Node) HandlePing(ctx context.Context, pingMsg msg.Ping) {
@@ -171,4 +171,10 @@ func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg msg.Pong) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.recorded = utils.Uint64Max(n.recorded, pongMsg.RoundNumber)
+}
+
+func (n *Node) ReturnRecorded() uint64 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.recorded
 }

@@ -57,9 +57,8 @@ func TestHandleCfg(t *testing.T) {
 	}
 	cfg := config.MakeDefaultConfig()
 	cfg.TestingRateS = 1000
-	cfgMsg := msg.ConfigMsg{
-		Cfg: *cfg,
-	}
+	cfgMsg := msg.ConfigMsg{}
+	cfgMsg.MakeConfigMsg(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
 	for i := 0; i < 3; i++ {
@@ -83,9 +82,8 @@ func TestStartStop(t *testing.T) {
 	}
 	cfg := config.MakeDefaultConfig()
 	cfg.TestingRateS = 1000
-	cfgMsg := msg.ConfigMsg{
-		Cfg: *cfg,
-	}
+	cfgMsg := msg.ConfigMsg{}
+	cfgMsg.MakeConfigMsg(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
 	for i := 0; i < 3; i++ {
@@ -134,9 +132,8 @@ func TestBroadcastPing(t *testing.T) {
 	}
 	cfg := config.MakeDefaultConfig()
 	cfg.TestingRateS = 1000
-	cfgMsg := msg.ConfigMsg{
-		Cfg: *cfg,
-	}
+	cfgMsg := msg.ConfigMsg{}
+	cfgMsg.MakeConfigMsg(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
 	for i := 0; i < 3; i++ {
