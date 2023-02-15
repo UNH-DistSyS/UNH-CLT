@@ -29,7 +29,7 @@ type MsgHeader struct {
 	CycleId uint64 // id of communication cycle if part of fixed response-reply loop
 	// node receiving message with this flag, will do regional broadcast with flag removed
 	ZoneRelay bool
-	RequestId ids.CommandID
+	// RequestId ids.CommandID
 }
 
 func newMsgHeader(senderId ids.ID, hlcTime hlc.Timestamp) *MsgHeader {
@@ -49,10 +49,10 @@ func (hdr *MsgHeader) WithZoneRelay() *MsgHeader {
 	return hdr
 }
 
-func (hdr *MsgHeader) WithRequestId(reqId ids.CommandID) *MsgHeader {
-	hdr.RequestId = reqId
-	return hdr
-}
+// func (hdr *MsgHeader) WithRequestId(reqId ids.CommandID) *MsgHeader {
+// 	hdr.RequestId = reqId
+// 	return hdr
+// }
 
 func (hdr *MsgHeader) WithCycletId(cycleId uint64) *MsgHeader {
 	hdr.CycleId = cycleId
@@ -69,7 +69,7 @@ func (hdr *MsgHeader) ToBytes() []byte {
 
 func (hdr *MsgHeader) ToContextMeta() *core.ContextMeta {
 	return &core.ContextMeta{
-		RequestID:             hdr.RequestId,
+		// RequestID:             hdr.RequestId,
 		CurrentMessageSender:  hdr.Sender,
 		CurrentMessageCycleId: hdr.CycleId,
 	}

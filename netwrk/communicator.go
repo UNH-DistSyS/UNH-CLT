@@ -155,7 +155,7 @@ func (c *basicCommunicator) Reply(ctx context.Context, msg interface{}) error {
 		hlcTime := hlc.HLClock.Now()
 		hdr := newMsgHeader(c.id, hlcTime)
 		hdr.CycleId = ctxMeta.CurrentMessageCycleId
-		hdr.RequestId = ctxMeta.RequestID
+		// hdr.RequestId = ctxMeta.RequestID
 		hdr.Kind = MessageResponse
 		c.sendWithHeader(ctxMeta.CurrentMessageSender, msg, hdr)
 		return nil
@@ -181,11 +181,6 @@ func (c *basicCommunicator) SendAndAwaitReply(ctx context.Context, to ids.ID, ms
 		cycleId := atomic.AddUint64(&c.communicationCycleId, 1)
 		hlcTime := hlc.HLClock.Now()
 		hdr := newMsgHeader(c.id, hlcTime).WithCycletId(cycleId)
-		meta := ctx.Value(CtxMeta)
-		switch ctxMeta := meta.(type) {
-		case *core.ContextMeta:
-			hdr.RequestId = ctxMeta.RequestID
-		}
 
 		c.addPendingChanel(pendingChan, cycleId)
 		c.sendWithHeader(to, msg, hdr)
@@ -362,10 +357,6 @@ func (c *basicCommunicator) BroadcastAndAwaitReplies(ctx context.Context, selflo
 		hlcTime := hlc.HLClock.Now()
 		cycleId := atomic.AddUint64(&c.communicationCycleId, 1)
 		hdr := newMsgHeader(c.id, hlcTime).WithCycletId(cycleId)
-		if c.replGroupProvider == nil {
-			log.Errorf("Replication group provider is not set in the communicator on node %v", c.id)
-			return nil, errors.New("replication group provider is not set in the communicator")
-		}
 		respChan := c.getAvailableResponseChannel()
 		c.addPendingChanel(respChan, cycleId)
 		for id := range c.cfg.ClusterMembership.Addrs {

@@ -3,6 +3,7 @@ package msg
 import (
 	"encoding/gob"
 	"fmt"
+
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
