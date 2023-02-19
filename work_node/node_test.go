@@ -1,4 +1,4 @@
-package node_provider
+package work_node
 
 // Only run tests one by one, don't run the package. Since there's no method for Nodes to stop.
 
@@ -23,7 +23,7 @@ func createNode(zone uint8, node uint8) *Node {
 	cfg := config.MakeDefaultConfig()
 	cfg.TestingRateS = 0
 	id := ids.NewID(zone, node)
-	return NewNode(cfg, id)
+	return NewNode(cfg, *id)
 }
 
 func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
@@ -36,7 +36,7 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 		cfg1 := config.MakeDefaultConfig()
 		cfg1.ClusterMembership.Addrs[nodeIds[i]] = "tcp://127.0.0.1:" + strconv.Itoa(config.PORT+i)
 		cfg1.ClusterMembership.RefreshIdsFromAddresses()
-		node := NewNode(cfg1, &nodeIds[i])
+		node := NewNode(cfg1, nodeIds[i])
 		node.Run()
 		nodes = append(nodes, node)
 	}

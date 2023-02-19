@@ -40,7 +40,7 @@ func TestStartStop(t *testing.T) {
 	time.Sleep(time.Second)
 }
 
-func TestOnesecond(t *testing.T) {
+func TestOneSecond(t *testing.T) {
 	SetupConfig()
 	SetupMaster()
 	SetupThreeNodeTest()
@@ -59,7 +59,7 @@ func TestOnesecond(t *testing.T) {
 		idx2[id] = node.ReturnRecorded()
 	}
 	for id, node := range nodes {
-		assert.Greater(t, node.ReturnRecorded(), uint64(100), "Node %v only finished %v commands, which is less than expected", id, node.ReturnRecorded())
+		assert.Greater(t, node.ReturnRecorded(), uint64(900), "Node %v only finished %v commands, which is less than expected", id, node.ReturnRecorded())
 		assert.Equal(t, idx1[id], idx2[id], "Node %v failed to stop, %v!=%v", id, idx1[id], idx2[id])
 	}
 	for _, node := range nodes {

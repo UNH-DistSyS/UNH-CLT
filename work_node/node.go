@@ -1,4 +1,4 @@
-package node_provider
+package work_node
 
 import (
 	"context"
@@ -27,13 +27,13 @@ type Node struct {
 	latencyTestingInProgress bool
 }
 
-func NewNode(cfg *config.Config, identity *ids.ID) *Node {
-	incommingMsgOperationDispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*identity, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
-	netman := netwrk.NewCommunicator(cfg, *identity, incommingMsgOperationDispatcher)
+func NewNode(cfg *config.Config, identity ids.ID) *Node {
+	incomingMsgOperationDispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(identity, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
+	netman := netwrk.NewCommunicator(cfg, identity, incomingMsgOperationDispatcher)
 
 	n := &Node{
 		netman:                   netman,
-		id:                       identity,
+		id:                       &identity,
 		stopCh:                   make(chan bool, cfg.ChanBufferSize), //donot block
 		idx:                      0,
 		latencyTestingInProgress: false,
@@ -78,22 +78,24 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
-		ID: msg.ID,
-		Ok: true,
+		ID:   msg.ID,
+		Ok:   true,
+		From: *n.id,
 	}
 	log.Debugf("Node %v's new cfg: %v", n.id, n.cfg.ClusterMembership.Addrs)
 }
 
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.StartLatencyTest) {
-	log.Infof("node %v trying to start", n.id)
+	log.Infof("Node %v trying to start", n.id)
 	n.mu.Lock()
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
 		n.mu.Unlock()
 		msg.C <- messages.ReplyToMaster{
-			ID: msg.ID,
-			Ok: false,
+			ID:   msg.ID,
+			Ok:   false,
+			From: *n.id,
 		}
 		return
 	}
@@ -102,8 +104,9 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.Start
 		log.Errorf("Repeat Starting!")
 		n.mu.Unlock()
 		msg.C <- messages.ReplyToMaster{
-			ID: msg.ID,
-			Ok: true,
+			ID:   msg.ID,
+			Ok:   true,
+			From: *n.id,
 		}
 		return
 	}
@@ -121,7 +124,7 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.Start
 }
 
 func (n *Node) HandleStopLatencyTest(ctx context.Context, msg messages.StopLatencyTest) {
-	log.Infof("node %v trying to stop", n.id)
+	log.Infof("Node %v trying to stop", n.id)
 	n.stopTesting()
 	msg.C <- messages.ReplyToMaster{
 		ID: msg.ID,

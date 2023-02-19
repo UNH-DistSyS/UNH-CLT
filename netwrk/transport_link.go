@@ -141,7 +141,7 @@ const (
 
 var scheme = flag.String("transportLink", "tcp", "transportLink scheme (tcp, udp, chan), default tcp")
 
-// TransportLink for client & node
+// TransportLink for master & node
 type TransportLink interface {
 	// Scheme returns transportLink scheme
 	Scheme() string
@@ -407,9 +407,11 @@ func (t *transportLink) StartIncoming(conn net.Conn) {
 	}
 }
 
-/******************************
+/*
+*****************************
 /*     TCP communication      *
-/******************************/
+/*****************************
+*/
 type tcp struct {
 	*transportLink
 }
@@ -494,7 +496,7 @@ func (t *tcp) dial() error {
 		return err
 	}
 	if oldState, ok := t.TransitionToState(StateDialer); ok {
-		// with clients we maintain two-way link
+		// with master we maintain two-way link
 		// unlike cross-node communication which uses one directional links,
 		// client dialer also listens to replies
 		if t.isBidirectionalLink {
@@ -509,9 +511,11 @@ func (t *tcp) dial() error {
 	return nil
 }
 
-/******************************
+/*
+*****************************
 /*     UDP communication      *
-/******************************/
+/*****************************
+*/
 type udp struct {
 	*transportLink
 }

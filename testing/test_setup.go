@@ -4,20 +4,20 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/log"
-	master_provider "github.com/UNH-DistSyS/UNH-CLT/master"
-	node_provider "github.com/UNH-DistSyS/UNH-CLT/node"
+	"github.com/UNH-DistSyS/UNH-CLT/master_node"
+	"github.com/UNH-DistSyS/UNH-CLT/work_node"
 )
 
-var nodes map[ids.ID]*node_provider.Node
+var nodes map[ids.ID]*work_node.Node
 var cfg *config.Config
-var master master_provider.Master
+var master master_node.Master
 var mid ids.ID
 var nids []ids.ID
 
 func SetupMaster() {
 	mid = *ids.NewClientID(1, 1)
 	log.Infoln("MasterID ", mid)
-	master = *master_provider.NewMaster(cfg, &mid)
+	master = *master_node.NewMaster(cfg, &mid)
 	master.Run()
 }
 
@@ -32,11 +32,13 @@ func SetupThreeNodeTest() {
 	id3 := *ids.GetIDFromString("1.3")
 	testids := []ids.ID{id1, id2, id3}
 	nids = testids
-	nodes = make(map[ids.ID]*node_provider.Node, len(cfg.ClusterMembership.IDs))
+	nodes = make(map[ids.ID]*work_node.Node, len(cfg.ClusterMembership.IDs))
 	for _, identity := range nids {
-		// log.Infof("starting Node %v with cfg: %v", identity, cfg)
-		node := node_provider.NewNode(cfg, &identity)
-		node.Run()
-		nodes[identity] = node
+		log.Infof("starting Node %v", identity)
+		workNode := work_node.NewNode(cfg, identity)
+		workNode.Run()
+		nodes[identity] = workNode
 	}
+
+	log.Infof("Nodes: %v", nodes)
 }

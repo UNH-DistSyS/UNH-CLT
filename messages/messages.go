@@ -18,15 +18,16 @@ func init() {
 	gob.Register(ReplyToMaster{})
 }
 
-// Node reply message to master
+// Node reply message to master_node
 type ReplyToMaster struct {
-	ID int
-	Ok bool
+	ID   int
+	Ok   bool
+	From ids.ID
 }
 
 type ConfigMsg struct {
 	ID int
-	// Cfg config.Config // used to overwrite the default config of the node with a config from master
+	// Cfg config.Config // used to overwrite the default config of the node with a config from master_node
 	PayLoadSize  int
 	TestingRateS uint64
 	SelfLoop     bool

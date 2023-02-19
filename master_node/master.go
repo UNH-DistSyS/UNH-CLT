@@ -1,4 +1,4 @@
-package master_provider
+package master_node
 
 import (
 	"context"
@@ -31,20 +31,20 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 		id:         *identity,
 		replyChans: make(map[int]chan bool),
 	}
-	log.Infof("Master is", m)
+	log.Infof("Master is %v", m)
 	m.netman.Register(messages.ReplyToMaster{}, m.HandleReply)
 	return &m
 }
 
 func (m *Master) HandleReply(ctx context.Context, msg messages.ReplyToMaster) {
-	log.Infof("received reply for message %v", msg.ID)
+	log.Infof("Master %v received reply %v", m.id, msg)
 	m.Lock()
 	defer m.Unlock()
 	m.replyChans[m.msgID] <- msg.Ok
 }
 
 func (m *Master) broadcastMsg(id int, msg interface{}) bool {
-	log.Debugf("Master %s is sending msg", m.id)
+	log.Debugf("Master %s is sending msg %v", m.id, msg)
 	m.netman.Broadcast(msg, false) // broadcast msg
 	m.Lock()
 	replyCh := make(chan bool, m.cfg.ChanBufferSize)

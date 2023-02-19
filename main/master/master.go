@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"github.com/UNH-DistSyS/UNH-CLT/log"
-	master_provider "github.com/UNH-DistSyS/UNH-CLT/master"
+	"github.com/UNH-DistSyS/UNH-CLT/master_node"
 
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 	id := ids.GetIDFromFlag()
 	cfg := config.LoadConfigFromFile(*configFile)
-	master := master_provider.NewMaster(cfg, id)
+	master := master_node.NewMaster(cfg, id)
 	if *stop {
 		if !master.Stop() {
 			log.Errorln("Stop failed!")

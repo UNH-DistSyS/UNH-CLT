@@ -325,6 +325,7 @@ func (c *basicCommunicator) Broadcast(msg interface{}, selfloop bool) {
 		if id == c.id && !selfloop {
 			continue
 		}
+		log.Infof("Node %v sending %v to %v via broadcast", c.id, id, msg)
 		c.sendWithHeader(id, msg, hdr)
 	}
 }
@@ -604,7 +605,7 @@ func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgRepl
 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
 			cqlReply := <-cqlReq.C
 			m.Reply(cqlReply)
-			log.Debugf("replied to client")
+			log.Debugf("replied to master_node")
 		}()
 	case messages.StartLatencyTest:
 		go func() {

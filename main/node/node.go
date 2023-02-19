@@ -5,7 +5,7 @@ import (
 
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
-	node_provider "github.com/UNH-DistSyS/UNH-CLT/node"
+	"github.com/UNH-DistSyS/UNH-CLT/work_node"
 )
 
 var configFile = flag.String("config", "bin/config.json", "Configuration file for client. Defaults to config.json.")
@@ -18,6 +18,6 @@ func main() {
 	flag.Parse()
 	id := ids.GetIDFromFlag()
 	cfg := config.LoadConfigFromFile(*configFile)
-	node := node_provider.NewNode(cfg, id)
+	node := work_node.NewNode(cfg, *id)
 	node.Run()
 }
