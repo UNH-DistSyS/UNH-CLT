@@ -1,10 +1,9 @@
 package general_testing
 
 import (
-	"fmt"
-
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
+	"github.com/UNH-DistSyS/UNH-CLT/log"
 	master_provider "github.com/UNH-DistSyS/UNH-CLT/master"
 	node_provider "github.com/UNH-DistSyS/UNH-CLT/node"
 )
@@ -16,9 +15,10 @@ var mid ids.ID
 var nids []ids.ID
 
 func SetupMaster() {
-	mid = *ids.NewClientID(1, 0)
-	fmt.Println("MasterID ", mid)
+	mid = *ids.NewClientID(1, 1)
+	log.Infoln("MasterID ", mid)
 	master = *master_provider.NewMaster(cfg, &mid)
+	master.Run()
 }
 
 func SetupConfig() {
@@ -39,5 +39,4 @@ func SetupThreeNodeTest() {
 		node.Run()
 		nodes[identity] = node
 	}
-
 }

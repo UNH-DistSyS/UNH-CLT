@@ -9,7 +9,7 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/log"
-	"github.com/UNH-DistSyS/UNH-CLT/msg"
+	"github.com/UNH-DistSyS/UNH-CLT/messages"
 	"github.com/UNH-DistSyS/UNH-CLT/netwrk"
 	"github.com/UNH-DistSyS/UNH-CLT/operation_dispatcher"
 	"github.com/UNH-DistSyS/UNH-CLT/utils"
@@ -40,58 +40,97 @@ func NewNode(cfg *config.Config, identity *ids.ID) *Node {
 		cfg:                      cfg,
 	}
 
-	n.netman.Register(msg.ConfigMsg{}, n.HandleConfigMsg)
-	n.netman.Register(msg.StartLatencyTest{}, n.HandleStartLatencyTestMsg)
-	n.netman.Register(msg.StopLatencyTest{}, n.HandleStopLatencyTest)
-	n.netman.Register(msg.Ping{}, n.HandlePing) // this handler is for replying node
+	n.netman.Register(messages.ConfigMsg{}, n.HandleConfigMsg)
+	n.netman.Register(messages.StartLatencyTest{}, n.HandleStartLatencyTestMsg)
+	n.netman.Register(messages.StopLatencyTest{}, n.HandleStopLatencyTest)
+	n.netman.Register(messages.Ping{}, n.HandlePing) // this handler is for replying node
 	return n
 }
 
 func (n *Node) Run() {
 	n.netman.Run()
 }
+func (n *Node) Close() {
+	n.netman.Close()
+}
+func (n *Node) stopTesting() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.stopCh <- true
+}
+
+func (n *Node) stopAfter(testDuration int) {
+	time.Sleep(time.Second * time.Duration(testDuration))
+	n.stopTesting()
+}
 
 /***********************************************************************************************************************
  * Message Handlers
  **********************************************************************************************************************/
 
-func (n *Node) HandleConfigMsg(ctx context.Context, msg msg.ConfigMsg) {
+func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
-	log.Debugf("Node %v received config msg", n.id)
+	log.Infof("Node %v received new config msg", n.id)
 	n.cfg.PayLoadSize = msg.PayLoadSize
 	n.cfg.TestingRateS = msg.TestingRateS
 	n.cfg.SelfLoop = msg.SelfLoop
 	n.cfg.ClusterMembership.Addrs = msg.Addrs
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
-	n.netman.Reply(ctx, msg)
+	n.mu.Unlock()
+	msg.C <- messages.ReplyToMaster{
+		ID: msg.ID,
+		Ok: true,
+	}
+	log.Debugf("Node %v's new cfg: %v", n.id, n.cfg.ClusterMembership.Addrs)
 }
 
-func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg msg.StartLatencyTest) {
+func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.StartLatencyTest) {
+	log.Infof("node %v trying to start", n.id)
 	n.mu.Lock()
-	defer n.mu.Unlock()
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
+		n.mu.Unlock()
+		msg.C <- messages.ReplyToMaster{
+			ID: msg.ID,
+			Ok: false,
+		}
 		return
 	}
 
 	if n.latencyTestingInProgress {
 		log.Errorf("Repeat Starting!")
+		n.mu.Unlock()
+		msg.C <- messages.ReplyToMaster{
+			ID: msg.ID,
+			Ok: true,
+		}
 		return
 	}
 	n.latencyTestingInProgress = true
+
 	go n.senderTicker()
-	n.netman.Reply(ctx, msg)
+	if msg.TestingDurationSecond > 0 {
+		go n.stopAfter(msg.TestingDurationSecond)
+	}
+	n.mu.Unlock()
+	msg.C <- messages.ReplyToMaster{
+		ID: msg.ID,
+		Ok: true,
+	}
 }
 
-func (n *Node) HandleStopLatencyTest(ctx context.Context, msg msg.StopLatencyTest) {
-	n.stopCh <- true
-	n.netman.Reply(ctx, msg)
+func (n *Node) HandleStopLatencyTest(ctx context.Context, msg messages.StopLatencyTest) {
+	log.Infof("node %v trying to stop", n.id)
+	n.stopTesting()
+	msg.C <- messages.ReplyToMaster{
+		ID: msg.ID,
+		Ok: true,
+	}
 }
 
-func (n *Node) HandlePing(ctx context.Context, pingMsg msg.Ping) {
-	pongMsg := msg.Pong{Payload: pingMsg.Payload, RoundNumber: pingMsg.RoundNumber, ReplyingNodeId: *n.id}
+func (n *Node) HandlePing(ctx context.Context, pingMsg messages.Ping) {
+	pongMsg := messages.Pong{Payload: pingMsg.Payload, RoundNumber: pingMsg.RoundNumber, ReplyingNodeId: *n.id}
 	n.netman.Reply(ctx, pongMsg)
 }
 
@@ -108,7 +147,10 @@ func (n *Node) senderTicker() {
 			//stop testing
 			n.mu.Lock()
 			n.latencyTestingInProgress = false
+			// refreshing channel
+			n.stopCh = make(chan bool)
 			n.mu.Unlock()
+
 			return
 		default:
 			<-ticker.C
@@ -121,14 +163,14 @@ func (n *Node) senderTicker() {
 }
 
 func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bool {
-	log.Debugf("Node %s is sending Pong", n.id)
+	log.Debugf("Node %s is sending ping %v", n.id, roundnumber)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(n.cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
 	payload := make([]byte, n.cfg.PayLoadSize)
 	n.muRand.Lock()
 	rand.Read(payload)
 	n.muRand.Unlock()
-	pingMsg := msg.Ping{
+	pingMsg := messages.Ping{
 		Payload:     payload,
 		SenderId:    *n.id,
 		RoundNumber: roundnumber,
@@ -150,7 +192,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 	for {
 		select {
 		case pongRaw := <-respChan:
-			pong := pongRaw.Body.(msg.Pong)
+			pong := pongRaw.Body.(messages.Pong)
 			n.handlePong(startTimeMicroseconds, pong)
 			receivedResponses += 1
 			if expectedResponses == receivedResponses {
@@ -164,7 +206,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 	}
 }
 
-func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg msg.Pong) {
+func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg messages.Pong) {
 	// TODO: here we record the measurement
 
 	// The three lines of code are for testing, remove this once measurement is attached.

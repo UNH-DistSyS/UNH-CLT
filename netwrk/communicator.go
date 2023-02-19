@@ -15,6 +15,7 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/core"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/log"
+	"github.com/UNH-DistSyS/UNH-CLT/messages"
 	"github.com/UNH-DistSyS/UNH-CLT/utils/hlc"
 )
 
@@ -593,19 +594,35 @@ func (c *basicCommunicator) handleResends() {
 	}
 }
 
-// TODO: Just leave here for compile
+// TODO: Make it more general some time.
 func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgReplyWrapper) {
-	// switch m.Msg.(type) {
-	// case request.CqlRequest:
-	// 	// make the client request go through upper layers in parallel
-	// 	// the requests will get serialized later when transformed to replication operations
-	// 	go func() {
-	// 		cqlReq := m.Msg.(request.CqlRequest)
-	// 		cqlReq.C = make(chan request.CqlReply, 1)
-	// 		c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
-	// 		cqlReply := <-cqlReq.C
-	// 		m.Reply(cqlReply)
-	// 		log.Debugf("replied to client")
-	// 	}()
-	// }
+	switch m.Msg.(type) {
+	case messages.ConfigMsg:
+		go func() {
+			cqlReq := m.Msg.(messages.ConfigMsg)
+			cqlReq.C = make(chan messages.ReplyToMaster, 1)
+			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
+			cqlReply := <-cqlReq.C
+			m.Reply(cqlReply)
+			log.Debugf("replied to client")
+		}()
+	case messages.StartLatencyTest:
+		go func() {
+			cqlReq := m.Msg.(messages.StartLatencyTest)
+			cqlReq.C = make(chan messages.ReplyToMaster, 1)
+			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
+			cqlReply := <-cqlReq.C
+			m.Reply(cqlReply)
+			log.Debugf("replied to client")
+		}()
+	case messages.StopLatencyTest:
+		go func() {
+			cqlReq := m.Msg.(messages.StopLatencyTest)
+			cqlReq.C = make(chan messages.ReplyToMaster, 1)
+			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
+			cqlReply := <-cqlReq.C
+			m.Reply(cqlReply)
+			log.Debugf("replied to client")
+		}()
+	}
 }

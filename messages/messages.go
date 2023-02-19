@@ -1,4 +1,4 @@
-package msg
+package messages
 
 import (
 	"encoding/gob"
@@ -15,14 +15,23 @@ func init() {
 	gob.Register(StopLatencyTest{})
 	gob.Register(Ping{})
 	gob.Register(Pong{})
+	gob.Register(ReplyToMaster{})
+}
+
+// Node reply message to master
+type ReplyToMaster struct {
+	ID int
+	Ok bool
 }
 
 type ConfigMsg struct {
+	ID int
 	// Cfg config.Config // used to overwrite the default config of the node with a config from master
 	PayLoadSize  int
 	TestingRateS uint64
 	SelfLoop     bool
 	Addrs        map[ids.ID]string
+	C            chan ReplyToMaster
 }
 
 func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
@@ -38,9 +47,14 @@ func (c ConfigMsg) String() string {
 }
 
 type StartLatencyTest struct {
+	ID                    int
+	TestingDurationSecond int
+	C                     chan ReplyToMaster
 }
 
 type StopLatencyTest struct {
+	ID int
+	C  chan ReplyToMaster
 }
 
 type Ping struct {
