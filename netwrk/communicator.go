@@ -21,16 +21,9 @@ import (
 
 const RESPONSE_CHAN_SLACK = 3
 
-type ReplicationGroupProvider interface {
-	GetReplicationGroupZones() []uint8 // returns all zones in this node's replication group.
-	IsOutsideReplicationGroup(node ids.ID) bool
-}
-
 // Communicator integrates all networking interface
 type Communicator interface {
 	core.OperationDispatcher
-	SetReplicationGroupProvider(replGroupProvider ReplicationGroupProvider)
-	GetReplicationGroupProvider() ReplicationGroupProvider
 
 	// Send put message to outbound queue
 	Send(to ids.ID, m interface{})
@@ -45,9 +38,6 @@ type Communicator interface {
 	Broadcast(m interface{}, selfloop bool)
 
 	BroadcastAndAwaitReplies(ctx context.Context, selfloop bool, msg interface{}) (chan Message, error)
-
-	// BroadcastDifferentMsgNTimes sends m1 to n random peer, and m2 to the rest
-	BroadcastDifferentMsgNTimes(m1 interface{}, m2 interface{}, n int)
 }
 
 type TransportLinkManager interface {
@@ -65,10 +55,9 @@ type basicCommunicator struct {
 	id ids.ID // this node's id
 
 	core.OperationDispatcher      // dispatcher for handling incoming messages
-	isClientSide             bool // whether this communicator is on the client-side of the application
+	isMasterSide             bool // whether this communicator is on the master-side of the application
 	nodes                    map[ids.ID]TransportLink
-	clientListener           TransportLink
-	replGroupProvider        ReplicationGroupProvider
+	masterListener           TransportLink
 	recvChannel              chan *Message       // channel given from communicator to enable zone message relays
 	resendChan               chan *resendMessage // channel given from communicator to enable zone message relays
 	cfg                      *config.Config      // config object with topology info
@@ -87,7 +76,7 @@ type basicCommunicator struct {
 func NewCommunicator(cfg *config.Config, nodeId ids.ID, opDispatcher core.OperationDispatcher) Communicator {
 	communicator := &basicCommunicator{
 		id:                    nodeId,
-		isClientSide:          false,
+		isMasterSide:          false,
 		cfg:                   cfg,
 		nodes:                 make(map[ids.ID]TransportLink),
 		recvChannel:           make(chan *Message, cfg.ChanBufferSize),
@@ -102,12 +91,12 @@ func NewCommunicator(cfg *config.Config, nodeId ids.ID, opDispatcher core.Operat
 	return communicator
 }
 
-// NewClientCommunicator returns a client Communicator instance
-// client communicator is used on the client side to send/receive messages to/from nodes
-func NewClientCommunicator(cfg *config.Config, nodeId ids.ID, dispatcher core.OperationDispatcher) Communicator {
+// NewMasterCommunicator returns a master Communicator instance
+// master communicator is used on the master side to send/receive messages to/from nodes
+func NewMasterCommunicator(cfg *config.Config, nodeId ids.ID, dispatcher core.OperationDispatcher) Communicator {
 	communicator := &basicCommunicator{
 		id:                   nodeId,
-		isClientSide:         true,
+		isMasterSide:         true,
 		nodes:                make(map[ids.ID]TransportLink),
 		cfg:                  cfg,
 		recvChannel:          make(chan *Message, cfg.ChanBufferSize),
@@ -118,14 +107,6 @@ func NewClientCommunicator(cfg *config.Config, nodeId ids.ID, dispatcher core.Op
 	}
 
 	return communicator
-}
-
-func (c *basicCommunicator) SetReplicationGroupProvider(replGroupProvider ReplicationGroupProvider) {
-	c.replGroupProvider = replGroupProvider
-}
-
-func (c *basicCommunicator) GetReplicationGroupProvider() ReplicationGroupProvider {
-	return c.replGroupProvider
 }
 
 /*************************************************************************
@@ -197,127 +178,6 @@ func (c *basicCommunicator) SendAndAwaitReply(ctx context.Context, to ids.ID, ms
 	}
 }
 
-func (c *basicCommunicator) MulticastQuorum(quorum int, selfloop bool, msg interface{}) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime)
-	i := 0
-	for id := range c.cfg.ClusterMembership.Addrs {
-		if id == c.id && !selfloop {
-			continue
-		}
-		c.sendWithHeader(id, msg, hdr)
-		i++
-		if i == quorum {
-			break
-		}
-	}
-}
-
-// MulticastZone sends a message msg to all nodes in a zone
-func (c *basicCommunicator) MulticastZone(zone uint8, selfloop bool, msg interface{}) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime)
-
-	for _, id := range c.cfg.ClusterMembership.ZonesToNodeIds[zone] {
-		if id == c.id && !selfloop {
-			continue
-		}
-		c.sendWithHeader(id, msg, hdr)
-	}
-}
-
-// MulticastReplicationGroup a message msg to all nodes in all zones in the replication group
-// this is a fire and forget style of message
-func (c *basicCommunicator) MulticastReplicationGroup(selfloop bool, msg interface{}) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime)
-	if c.replGroupProvider == nil {
-		log.Warningf("Replication group provider is not set in the communicator")
-		return
-	}
-	zones := c.replGroupProvider.GetReplicationGroupZones()
-	for _, z := range zones {
-		for _, id := range c.cfg.ClusterMembership.ZonesToNodeIds[z] {
-			if id == c.id && !selfloop {
-				continue
-			}
-			c.sendWithHeader(id, msg, hdr)
-		}
-	}
-}
-
-// MulticastReplicationGroupAndAwaitReplies sends a message msg to all nodes in all zones in the replication region
-// and awaits corresponding replies, moving the replicas to a callback function
-func (c *basicCommunicator) MulticastReplicationGroupAndAwaitReplies(ctx context.Context, selfloop bool, msg interface{}) (chan Message, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err() // this should stop sending a message when the context is expired?
-	default:
-		hlcTime := hlc.HLClock.Now()
-		cycleId := atomic.AddUint64(&c.communicationCycleId, 1)
-		hdr := newMsgHeader(c.id, hlcTime).WithCycletId(cycleId)
-		if c.replGroupProvider == nil {
-			log.Errorf("Replication group provider is not set in the communicator on node %v", c.id)
-			return nil, errors.New("replication group provider is not set in the communicator")
-		}
-		respChan := c.getAvailableResponseChannel()
-		c.addPendingChanel(respChan, cycleId)
-		zones := c.replGroupProvider.GetReplicationGroupZones()
-		for _, z := range zones {
-			for _, id := range c.cfg.ClusterMembership.ZonesToNodeIds[z] {
-				if id == c.id && !selfloop {
-					continue
-				}
-				c.sendWithHeader(id, msg, hdr)
-			}
-		}
-
-		// cleanup pending map
-		// doneChan := make(chan struct{}, 1)
-		go func() {
-			<-ctx.Done()
-			c.removePendingChanel(cycleId)
-		}()
-
-		return respChan, nil
-	}
-}
-
-// MulticastRemoteZoneRelays sends message msg to any one node in all zones NOT in the replication region
-func (c *basicCommunicator) MulticastRemoteZoneRelays(msg interface{}) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime).WithZoneRelay()
-	if c.replGroupProvider == nil {
-		log.Warningf("Replication group provider is not set in the communicator")
-		return
-	}
-	zones := c.replGroupProvider.GetReplicationGroupZones()
-
-	for zone, ids := range c.cfg.ClusterMembership.ZonesToNodeIds {
-		inRegion := false
-		for _, z := range zones {
-			if zone == z {
-				inRegion = true
-			}
-		}
-
-		if !inRegion {
-			id := c.randomIdFromList(ids)
-			c.sendWithHeader(id, msg, hdr)
-		}
-	}
-}
-
-// MulticastZoneRelays sends a message msg to any one node in all specified zones
-func (c *basicCommunicator) MulticastZoneRelays(zones []uint8, msg interface{}) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime).WithZoneRelay()
-	for _, z := range zones {
-		id := c.randomIdFromList(c.cfg.ClusterMembership.ZonesToNodeIds[z])
-		c.sendWithHeader(id, msg, hdr)
-	}
-}
-
 func (c *basicCommunicator) Broadcast(msg interface{}, selfloop bool) {
 	hlcTime := hlc.HLClock.Now()
 	hdr := newMsgHeader(c.id, hlcTime)
@@ -327,24 +187,6 @@ func (c *basicCommunicator) Broadcast(msg interface{}, selfloop bool) {
 		}
 		log.Infof("Node %v sending %v to %v via broadcast", c.id, id, msg)
 		c.sendWithHeader(id, msg, hdr)
-	}
-}
-
-// BroadcastDifferentMsgNTimes sends two messages m1 and m2, such that m1 is sent n times and all other nodes receive m2
-func (c *basicCommunicator) BroadcastDifferentMsgNTimes(m1 interface{}, m2 interface{}, n int) {
-	hlcTime := hlc.HLClock.Now()
-	hdr := newMsgHeader(c.id, hlcTime)
-	m1Sent := 0
-	for id := range c.cfg.ClusterMembership.Addrs {
-		if id == c.id {
-			continue
-		}
-		if m1Sent == n {
-			c.sendWithHeader(id, m2, hdr)
-		} else {
-			m1Sent += 1
-			c.sendWithHeader(id, m1, hdr)
-		}
 	}
 }
 
@@ -384,40 +226,50 @@ func (c *basicCommunicator) BroadcastAndAwaitReplies(ctx context.Context, selflo
 func (c *basicCommunicator) Run() {
 	log.Infof("Starting Communicator at node %v\n", c.id)
 
-	if !c.isClientSide {
-		c.nodes[c.id] = NewTransportLink(c.cfg.ClusterMembership.Addrs[c.id], c.id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
-
+	if !c.isMasterSide {
+		c.nodes[c.id] = NewTransportLink(c.cfg.ClusterMembership.Addrs[c.id].PrivateAddress, c.id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
+		//TODO: add another listener on the public-facing address?
 		for _, id := range c.cfg.ClusterMembership.IDs {
 			if id != c.id {
-				t := NewTransportLink(c.cfg.ClusterMembership.Addrs[id], id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
+				addr := c.cfg.ClusterMembership.Addrs[id].PrivateAddress
+				if id.ZoneId != c.id.ZoneId && c.cfg.ClusterMembership.Addrs[id].PublicAddress != "" {
+					addr = c.cfg.ClusterMembership.Addrs[id].PublicAddress
+				}
+
+				t := NewTransportLink(addr, id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
 				c.AddTransportLink(t, id)
 			}
 		}
 
-		clientListenAddr, err := getClientAddressFromServer(c.cfg.ClusterMembership.Addrs[c.id])
+		masterListenAddr, err := getMasterAddressFromServer(c.cfg.ClusterMembership.Addrs[c.id].PrivateAddress)
 		if err == nil {
-			c.clientListener = NewBidirectionalTransportLink(clientListenAddr, c.id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan, c.recvChannel)
+			c.masterListener = NewBidirectionalTransportLink(masterListenAddr, c.id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan, c.recvChannel)
 		} else {
-			log.Errorf("Error getting client address from node address: %v", err)
+			log.Errorf("Error getting master address from node address(%s): %v", masterListenAddr, err)
 		}
 
-		// register client message catch-all handler that installs the reply channel
+		// register master message catch-all handler that installs the reply channel
 		c.Register(MsgReplyWrapper{}, c.handleMsgReplyWrapper)
 
 		if c.nodes[c.id] != nil {
 			c.nodes[c.id].Listen(c.recvChannel)
 		}
-		if c.clientListener != nil {
-			c.clientListener.Listen(c.recvChannel)
+		if c.masterListener != nil {
+			c.masterListener.Listen(c.recvChannel)
 		}
 	} else {
 		for id, cfgAddr := range c.cfg.ClusterMembership.Addrs {
-			addr, err := getClientAddressFromServer(cfgAddr)
+			addr := cfgAddr.PrivateAddress
+			if id.ZoneId != c.id.ZoneId && cfgAddr.PublicAddress != "" {
+				addr = cfgAddr.PublicAddress
+			}
+
+			addr, err := getMasterAddressFromServer(addr)
 			if err == nil {
 				t := NewBidirectionalTransportLink(addr, id, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan, c.recvChannel)
 				c.AddTransportLink(t, id)
 			} else {
-				log.Errorf("Error getting client address from node address: %v", err)
+				log.Errorf("Error getting master address from node address: %v", err)
 			}
 		}
 	}
@@ -433,8 +285,8 @@ func (c *basicCommunicator) Close() {
 	for _, t := range c.nodes {
 		t.Close()
 	}
-	if c.clientListener != nil {
-		c.clientListener.Close()
+	if c.masterListener != nil {
+		c.masterListener.Close()
 	}
 	c.OperationDispatcher.Close()
 }
@@ -443,7 +295,7 @@ func (c *basicCommunicator) Close() {
  *                                  Helpers
 ************************************************************************/
 
-func getClientAddressFromServer(addr string) (string, error) {
+func getMasterAddressFromServer(addr string) (string, error) {
 	s := strings.Split(addr, ":")
 	if len(s) != 3 {
 		return addr, fmt.Errorf("incorrect address specification for address %s", addr)
@@ -467,10 +319,15 @@ func (c *basicCommunicator) send(to ids.ID, m *Message) {
 	t, exists := c.nodes[to]
 	c.RUnlock()
 	if !exists || t.GetLinkState() == StateClosed {
-		if c.isClientSide {
-			t = NewBidirectionalTransportLink(c.cfg.ClusterMembership.Addrs[to], to, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan, c.recvChannel)
+		addr := c.cfg.ClusterMembership.Addrs[to].PrivateAddress
+		if to.ZoneId != c.id.ZoneId && c.cfg.ClusterMembership.Addrs[to].PublicAddress != "" {
+			addr = c.cfg.ClusterMembership.Addrs[to].PublicAddress
+		}
+
+		if c.isMasterSide {
+			t = NewBidirectionalTransportLink(addr, to, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan, c.recvChannel)
 		} else {
-			t = NewTransportLink(c.cfg.ClusterMembership.Addrs[to], to, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
+			t = NewTransportLink(addr, to, c.id, c.cfg.ChanBufferSize, c.cfg.CommunicationTimeoutMs, c.resendChan)
 		}
 		c.AddTransportLink(t, to)
 		//log.Errorf("Communicator on node %v does not have transport for node %s", c.id, to)
@@ -550,17 +407,12 @@ func (c *basicCommunicator) receiveMessages() {
 	for m := range c.recvChannel {
 		ctx := context.WithValue(context.Background(), CtxMeta, m.Header.ToContextMeta())
 
-		if m.Header.ZoneRelay {
-			c.MulticastZone(c.id.ZoneId, false, m.Body)
-		}
-
 		if m.Header.Kind == MessageResponse && m.Header.CycleId > 0 {
 			c.handleReplies(m)
 			continue
 		}
 
 		c.OperationDispatcher.EnqueueOperation(ctx, m.Body)
-		//log.Debugf("receiveMessages enqueued message %v", m)
 	}
 }
 
@@ -568,29 +420,10 @@ func (c *basicCommunicator) handleResends() {
 	for m := range c.resendChan {
 		log.Debugf("Node %v possible resend: %v", c.id, m.message)
 		// resend message that is not too old -- i.e., a message that is older than maximum round time should be dropped
-		// also resend a message with a ZoneRelay flag regardless of its age. Zone relay mesasges may not be part of a round, and server as notifications, so it is still ok to deliver them
-		if m.message.Header.HLCTime.PhysicalTime+int64(c.cfg.RoundTimeoutMs-c.cfg.CommunicationTimeoutMs) > hlc.HLClock.Now().PhysicalTime || m.message.Header.ZoneRelay {
-			if m.message.Header.ZoneRelay {
-				// if zone relay failed, resend to some random node in the same zone
-
-				lst := make([]ids.ID, 0)
-				for _, idInZone := range c.cfg.ClusterMembership.ZonesToNodeIds[m.originalDestination.ZoneId] {
-					if idInZone != c.id && idInZone != m.originalDestination {
-						lst = append(lst, idInZone)
-					}
-				}
-
-				id := c.randomIdFromListWithNoSelfExclusions(lst)
-				if id != nil {
-					log.Debugf("Node %v has message %v to node %v in resend channel with new destination of %v", c.id, m.message, m.originalDestination, id)
-					c.delaySend(time.Duration(c.cfg.CommunicationTimeoutMs)*time.Millisecond, *id, m.message) // resend to the same place
-				} else {
-					log.Errorf("No other available nodes in the region %d. Dropping resend message at node %v", m.originalDestination.ZoneId, c.id)
-				}
-			} else {
-				c.delaySend(time.Duration(c.cfg.CommunicationTimeoutMs)*time.Millisecond, m.originalDestination, m.message) // resend to the same place
-				log.Debugf("Node %v has message %v to node %v in resend channel with new destination of %v", c.id, m.message, m.originalDestination, m.originalDestination)
-			}
+		// also resend a message with a ZoneRelay flag regardless of its age.
+		if m.message.Header.HLCTime.PhysicalTime+int64(c.cfg.RoundTimeoutMs-c.cfg.CommunicationTimeoutMs) > hlc.HLClock.Now().PhysicalTime {
+			c.delaySend(time.Duration(c.cfg.CommunicationTimeoutMs)*time.Millisecond, m.originalDestination, m.message) // resend to the same place
+			log.Debugf("Node %v has message %v to node %v in resend channel with new destination of %v", c.id, m.message, m.originalDestination, m.originalDestination)
 		}
 	}
 }
@@ -605,7 +438,7 @@ func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgRepl
 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
 			cqlReply := <-cqlReq.C
 			m.Reply(cqlReply)
-			log.Debugf("replied to master_node")
+			log.Debugf("replied to master")
 		}()
 	case messages.StartLatencyTest:
 		go func() {
@@ -614,7 +447,7 @@ func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgRepl
 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
 			cqlReply := <-cqlReq.C
 			m.Reply(cqlReply)
-			log.Debugf("replied to client")
+			log.Debugf("replied to master")
 		}()
 	case messages.StopLatencyTest:
 		go func() {
@@ -623,7 +456,7 @@ func (c *basicCommunicator) handleMsgReplyWrapper(ctx context.Context, m MsgRepl
 			c.EnqueueOperation(ctx, cqlReq) // we re-enqueue this operation
 			cqlReply := <-cqlReq.C
 			m.Reply(cqlReply)
-			log.Debugf("replied to client")
+			log.Debugf("replied to master")
 		}()
 	}
 }

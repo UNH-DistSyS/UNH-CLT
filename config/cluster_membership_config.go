@@ -8,8 +8,17 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
+type NodeInfo struct {
+	NodeId         ids.ID
+	PrivateAddress string
+	PublicAddress  string
+}
+
 type ClusterMembershipConfig struct {
-	AddrsStr map[string]string `json:"address"` // address for node communication
+	// we use two types of addresses: private and public. Private addresses are used for talking within the regional
+	// network, while public addresses are for talking across regions
+	PrivateAddrsStr map[string]string `json:"private_address"` // private address for node communication
+	PublicAddrsStr  map[string]string `json:"public_address"`  // public address for node communication if different from private.
 
 	/************************************************************************************************************
 	 * Here are config parameters derived from the json file
@@ -17,14 +26,25 @@ type ClusterMembershipConfig struct {
 
 	IDs            []ids.ID           // list of all IDs.
 	ZonesToNodeIds map[uint8][]ids.ID // map of zones to ids in these zones
-	Addrs          map[ids.ID]string  // address for node communication
+	//PrivateAddrs   map[ids.ID]string  // private address for node communication
+	//PublicAddrs    map[ids.ID]string  // public address for node communication
+
+	Addrs map[ids.ID]NodeInfo // node info for communication
 
 	sync.RWMutex // mutex to protext configuration from concurrent access
 }
 
 func MakeDefaultClusterMembershipConfig() *ClusterMembershipConfig {
 	config := new(ClusterMembershipConfig)
-	config.Addrs = map[ids.ID]string{*ids.GetIDFromString("1.1"): "tcp://127.0.0.1:" + strconv.Itoa(PORT)}
+
+	dummyNode := NodeInfo{
+		NodeId:         *ids.GetIDFromString("1.1"),
+		PrivateAddress: "tcp://127.0.0.1:" + strconv.Itoa(PORT),
+		PublicAddress:  "tcp://127.0.0.1:" + strconv.Itoa(PORT),
+	}
+
+	config.Addrs = map[ids.ID]NodeInfo{*ids.GetIDFromString("1.1"): dummyNode}
+
 	config.RefreshIdsFromAddresses()
 	return config
 }
@@ -73,7 +93,7 @@ func (c *ClusterMembershipConfig) RefreshIdsFromAddresses() {
 
 }
 
-func (c *ClusterMembershipConfig) AddNodeAddress(id ids.ID, serverAddr, httpAddress string) error {
+func (c *ClusterMembershipConfig) AddNodeAddress(id ids.ID, privateServerAddr, publicServerAddr string) error {
 	c.RWMutex.Lock()
 	defer c.RWMutex.Unlock()
 	for _, existingId := range c.IDs {
@@ -82,7 +102,13 @@ func (c *ClusterMembershipConfig) AddNodeAddress(id ids.ID, serverAddr, httpAddr
 		}
 	}
 
-	c.Addrs[id] = serverAddr
+	ni := NodeInfo{
+		NodeId:         id,
+		PrivateAddress: privateServerAddr,
+		PublicAddress:  publicServerAddr,
+	}
+
+	c.Addrs[id] = ni
 	c.IDs = append(c.IDs, id)
 	if c.ZonesToNodeIds[id.ZoneId] == nil {
 		c.ZonesToNodeIds[id.ZoneId] = make([]ids.ID, 0)
@@ -95,10 +121,18 @@ func (c *ClusterMembershipConfig) Init() {
 	c.Lock()
 	defer c.Unlock()
 	// get a list of all addresses in a map of ids
-	c.Addrs = make(map[ids.ID]string, len(c.AddrsStr))
-	for idStr, addr := range c.AddrsStr {
+	c.Addrs = make(map[ids.ID]NodeInfo, len(c.PrivateAddrsStr))
+	for idStr, addr := range c.PrivateAddrsStr {
 		id := ids.GetIDFromString(idStr)
-		c.Addrs[*id] = addr
+
+		ni := NodeInfo{
+			NodeId:         *id,
+			PrivateAddress: addr,
+			PublicAddress:  c.PublicAddrsStr[idStr],
+		}
+
+		c.Addrs[*id] = ni
+
 	}
 
 	c.RefreshIdsFromAddresses()

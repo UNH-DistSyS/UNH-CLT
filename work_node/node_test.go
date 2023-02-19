@@ -17,7 +17,7 @@ import (
 
 var nodes []*Node
 var cfg *config.Config
-var client netwrk.Communicator
+var master netwrk.Communicator
 
 func createNode(zone uint8, node uint8) *Node {
 	cfg := config.MakeDefaultConfig()
@@ -32,31 +32,32 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 	cfg.CommunicationTimeoutMs = 200
 	nodes = make([]*Node, 0)
 	for i := range nodeIds {
-		cfg.ClusterMembership.Addrs[nodeIds[i]] = "tcp://127.0.0.1:" + strconv.Itoa(config.PORT+i)
-		cfg1 := config.MakeDefaultConfig()
-		cfg1.ClusterMembership.Addrs[nodeIds[i]] = "tcp://127.0.0.1:" + strconv.Itoa(config.PORT+i)
-		cfg1.ClusterMembership.RefreshIdsFromAddresses()
-		node := NewNode(cfg1, nodeIds[i])
+		//cfg.ClusterMembership.Addrs[nodeIds[i]] = "tcp://127.0.0.1:" + strconv.Itoa(config.PORT+i)
+		cfg.ClusterMembership.AddNodeAddress(nodeIds[i], "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i), "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i))
+
+		dummyNodeCfg := config.MakeDefaultConfig()
+		dummyNodeCfg.ClusterMembership.AddNodeAddress(nodeIds[i], "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i), "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i))
+		node := NewNode(dummyNodeCfg, nodeIds[i])
 		node.Run()
 		nodes = append(nodes, node)
 	}
-	//setting up client
+	//setting up master
 	cfg.ClusterMembership.RefreshIdsFromAddresses()
 	cid := ids.NewClientID(1, 1)
 	cdispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*cid, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
-	client = netwrk.NewClientCommunicator(cfg, *cid, cdispatcher)
-	client.Run()
+	master = netwrk.NewMasterCommunicator(cfg, *cid, cdispatcher)
+	master.Run()
 	cfgMsg := messages.ConfigMsg{}
 	cfgMsg.MakeConfigMsg(cfg)
-	client.Broadcast(cfgMsg, false)
+	master.Broadcast(cfgMsg, false)
 	time.Sleep(time.Second)
 	for i := 0; i < 3; i++ {
-		assert.NotEqual(t, uint64(0), nodes[i].cfg.TestingRateS, "Node %d still has old config", i)
+		assert.NotEqual(t, uint64(0), nodes[i].cfg.TestingRateS, "Node %v still has old config", nodes[i].id)
 	}
 }
 
 func TestCreateNode(t *testing.T) {
-	node := createNode(0, 0)
+	node := createNode(1, 1)
 	assert.NotEqual(t, nil, node, "Failed to creating Node")
 	assert.NotEqual(t, nil, node.cfg, "Failed to creating Node, cfg nil")
 	assert.NotEqual(t, nil, node.id, "Failed to creating Node, nil id")
@@ -84,11 +85,11 @@ func TestStartStop(t *testing.T) {
 	testids := []ids.ID{id1, id2, id3}
 	setupNodeTests(t, testids)
 
-	client.Broadcast(messages.StartLatencyTest{
+	master.Broadcast(messages.StartLatencyTest{
 		ID:                    0,
 		TestingDurationSecond: -1}, false)
 	time.Sleep(time.Second)
-	client.Broadcast(messages.StopLatencyTest{}, false)
+	master.Broadcast(messages.StopLatencyTest{}, false)
 	time.Sleep(time.Second)
 	idxs := make([]uint64, 3)
 	for i := 0; i < 3; i++ {

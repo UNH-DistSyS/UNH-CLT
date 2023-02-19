@@ -24,7 +24,7 @@ type Master struct {
 
 func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 	opDispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*identity, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
-	netman := netwrk.NewClientCommunicator(cfg, *identity, opDispatcher)
+	netman := netwrk.NewMasterCommunicator(cfg, *identity, opDispatcher)
 	m := Master{
 		netman:     netman,
 		cfg:        cfg,
@@ -93,7 +93,7 @@ func (m *Master) BroadcastConfig() bool {
 		PayLoadSize:  m.cfg.PayLoadSize,
 		TestingRateS: m.cfg.TestingRateS,
 		SelfLoop:     m.cfg.SelfLoop,
-		Addrs:        m.cfg.ClusterMembership.Addrs,
+		Nodes:        m.cfg.ClusterMembership.Addrs,
 	}
 	m.msgID++
 	m.Mutex.Unlock()

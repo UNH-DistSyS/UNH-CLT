@@ -27,9 +27,6 @@ type MsgHeader struct {
 
 	Kind    MessageKind
 	CycleId uint64 // id of communication cycle if part of fixed response-reply loop
-	// node receiving message with this flag, will do regional broadcast with flag removed
-	ZoneRelay bool
-	// RequestId ids.CommandID
 }
 
 func newMsgHeader(senderId ids.ID, hlcTime hlc.Timestamp) *MsgHeader {
@@ -41,11 +38,6 @@ func newMsgHeader(senderId ids.ID, hlcTime hlc.Timestamp) *MsgHeader {
 
 func (hdr *MsgHeader) SetKind(kind MessageKind) *MsgHeader {
 	hdr.Kind = kind
-	return hdr
-}
-
-func (hdr *MsgHeader) WithZoneRelay() *MsgHeader {
-	hdr.ZoneRelay = true
 	return hdr
 }
 

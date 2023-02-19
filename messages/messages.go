@@ -31,7 +31,7 @@ type ConfigMsg struct {
 	PayLoadSize  int
 	TestingRateS uint64
 	SelfLoop     bool
-	Addrs        map[ids.ID]string
+	Nodes        map[ids.ID]config.NodeInfo
 	C            chan ReplyToMaster
 }
 
@@ -39,12 +39,12 @@ func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
 	c.PayLoadSize = cfg.PayLoadSize
 	c.TestingRateS = cfg.TestingRateS
 	c.SelfLoop = cfg.SelfLoop
-	c.Addrs = cfg.ClusterMembership.Addrs
+	c.Nodes = cfg.ClusterMembership.Addrs
 	return true
 }
 
 func (c ConfigMsg) String() string {
-	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Addrs)
+	return fmt.Sprintf("ConfigMsg {PayloadSize=%d, TestingRate=%dper second, selfLoop=%t, Nodes=%v}", c.PayLoadSize, c.TestingRateS, c.SelfLoop, c.Nodes)
 }
 
 type StartLatencyTest struct {

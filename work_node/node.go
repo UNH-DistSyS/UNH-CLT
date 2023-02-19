@@ -74,7 +74,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.PayLoadSize = msg.PayLoadSize
 	n.cfg.TestingRateS = msg.TestingRateS
 	n.cfg.SelfLoop = msg.SelfLoop
-	n.cfg.ClusterMembership.Addrs = msg.Addrs
+	n.cfg.ClusterMembership.Addrs = msg.Nodes
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
