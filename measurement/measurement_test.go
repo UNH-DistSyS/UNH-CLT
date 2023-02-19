@@ -18,8 +18,8 @@ import (
 var DEBUG = true
 var testPrefix = "test"
 
-func NewMeasurement(listSizeTestParam int) *Measurement {
-	return CreateMeasurement(ids.GetIDFromFlag(), testPrefix, listSizeTestParam)
+func CreateMeasurement(listSizeTestParam int) *Measurement {
+	return NewMeasurement(ids.GetIDFromFlag(), testPrefix, listSizeTestParam)
 }
 
 // Produces random amount of "time" between
@@ -47,9 +47,9 @@ func DoMeasurement(m *Measurement, remoteId *ids.ID) (int64, int64) {
  * Test functions
  **********************************************************************************************************************/
 
-func TestCreateMeasurement(t *testing.T) {
+func TestNewMeasurement(t *testing.T) {
 	listSizeTestParam := 10
-	m := NewMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam)
 
 	if DEBUG {
 		fmt.Printf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
@@ -66,7 +66,7 @@ func TestCreateMeasurement(t *testing.T) {
 func TestEpoch(t *testing.T) {
 	correctTimeMicro := time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)
 	if DEBUG {
-		fmt.Printf("Epoch time will be equal to %s\n", correctTimeMicro.String())
+		fmt.Printf("Epoch time should be equal to %s = %d\n", correctTimeMicro.String(), correctTimeMicro.UnixMicro())
 	}
 
 	if correctTimeMicro.UnixMicro() != _startEpoch {
@@ -77,7 +77,7 @@ func TestEpoch(t *testing.T) {
 func TestAddMeasurementOnce(t *testing.T) {
 	listSizeTestParam := 10
 	fakeNodeId := ids.GetIDFromFlag()
-	m := NewMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam)
 
 	s, e := DoMeasurement(m, fakeNodeId)
 
@@ -100,7 +100,7 @@ func TestAddMeasurementOnce(t *testing.T) {
 func TestAddMeasurement100(t *testing.T) {
 	listSizeTestParam := 101
 	fakeNodeId := ids.GetIDFromFlag()
-	m := NewMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam)
 
 	for i := 0; i < 100; i++ {
 		s, e := DoMeasurement(m, fakeNodeId)
@@ -119,7 +119,7 @@ func TestAddMeasurement100(t *testing.T) {
 func TestFlushCSV(t *testing.T) {
 	listSizeTestParam := 100
 	fakeNodeId := ids.GetIDFromFlag()
-	m := NewMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam)
 
 	for i := 0; i < 120; i++ {
 		DoMeasurement(m, fakeNodeId)
