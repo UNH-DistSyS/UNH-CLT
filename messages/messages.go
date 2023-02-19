@@ -1,4 +1,4 @@
-package msg
+package messages
 
 import (
 	"encoding/gob"
@@ -15,20 +15,46 @@ func init() {
 	gob.Register(StopLatencyTest{})
 	gob.Register(Ping{})
 	gob.Register(Pong{})
+	gob.Register(ReplyToMaster{})
+}
+
+// Node reply message to master
+type ReplyToMaster struct {
+	ID int
+	Ok bool
 }
 
 type ConfigMsg struct {
-	Cfg config.Config // used to overwrite the default config of the node with a config from master
+	ID int
+	// Cfg config.Config // used to overwrite the default config of the node with a config from master
+	PayLoadSize  int
+	TestingRateS uint64
+	SelfLoop     bool
+	Addrs        map[ids.ID]string
+	C            chan ReplyToMaster
+}
+
+func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
+	c.PayLoadSize = cfg.PayLoadSize
+	c.TestingRateS = cfg.TestingRateS
+	c.SelfLoop = cfg.SelfLoop
+	c.Addrs = cfg.ClusterMembership.Addrs
+	return true
 }
 
 func (c ConfigMsg) String() string {
-	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Cfg)
+	return fmt.Sprintf("ConfigMsg {Cfg=%v}", c.Addrs)
 }
 
 type StartLatencyTest struct {
+	ID                    int
+	TestingDurationSecond int
+	C                     chan ReplyToMaster
 }
 
 type StopLatencyTest struct {
+	ID int
+	C  chan ReplyToMaster
 }
 
 type Ping struct {
