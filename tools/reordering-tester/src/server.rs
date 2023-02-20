@@ -11,6 +11,7 @@ use std::{
 
 use clap::Parser;
 use glommio::{net::UdpSocket, prelude::*};
+use tracing::instrument;
 
 use crate::args::{setup_logger, Args};
 
@@ -43,7 +44,7 @@ fn main() {
 
 type MessageInfoBuf = [u8; 16];
 
-// #[instrument(skip(args))]
+#[instrument(skip(args))]
 async fn server_main(args: Arc<Args>) -> Result<(), GlommioError<()>> {
     tracing::info!("Server started");
 
@@ -79,11 +80,11 @@ async fn server_main(args: Arc<Args>) -> Result<(), GlommioError<()>> {
         ]
     });
 
-    let output_file_name = "out.csv";
+    let output_file_name = &args.output_path;
 
     let mut f = BufWriter::new(File::create(output_file_name).unwrap());
 
-    writeln!(f, "client_id,sequence_id").unwrap();
+    writeln!(f, "worker_id,sequence_id").unwrap();
 
     for [id, seq] in results {
         writeln!(f, "{id},{seq}").unwrap();
@@ -91,7 +92,7 @@ async fn server_main(args: Arc<Args>) -> Result<(), GlommioError<()>> {
 
     f.flush().unwrap();
 
-    tracing::info!("Wrote results to {}", output_file_name);
+    tracing::info!("Wrote results to {}", output_file_name.display());
 
     Ok(())
 }

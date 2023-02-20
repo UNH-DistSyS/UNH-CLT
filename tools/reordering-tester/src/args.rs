@@ -1,7 +1,7 @@
-use std::net::IpAddr;
-
 use clap::Parser;
 use serde::Serialize;
+use std::{net::IpAddr, path::PathBuf};
+
 use strum::{Display, EnumString};
 use uuid::Uuid;
 
@@ -53,6 +53,10 @@ pub struct Args {
     /// The logging format
     #[arg(long, env, default_value_t = LoggingFormat::Tracing)]
     pub logging_format: LoggingFormat,
+
+    /// The output path (truncate on collision)
+    #[arg(long, env, default_value = "out.csv")]
+    pub output_path: PathBuf,
 }
 
 pub fn setup_logger(format: &LoggingFormat) {
