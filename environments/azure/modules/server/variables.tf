@@ -27,3 +27,8 @@ variable "ssh_key_path" {
   type = string
   description = "The path to the PUBLIC ssh key you want to use to connect to the server"
 }
+
+variable "az_set_id" {
+  type = string
+  description = "The id of the az set to use"
+}

@@ -9,12 +9,17 @@ variable "instance_type" {
   default = "Standard_B1ls"
 }
 
-variable "region_index" {
-  type = number
-  description = "Which region number this is"
+variable "region_0_name" {
+  type        = string
+  description = "The name of region 0"
 }
 
-variable "region_name" {
-  type = string
-  description = "The name of the region"
+variable "region_1_name" {
+  type        = string
+  description = "The name of region 1"
+}
+
+variable "region_2_name" {
+  type        = string
+  description = "The name of region 2"
 }

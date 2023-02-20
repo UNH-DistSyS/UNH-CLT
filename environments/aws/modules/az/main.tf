@@ -1,6 +1,6 @@
 
 module "subnets" {
-  count = var.az_index == 0 && var.region_index == 0 ? 2 : 1
+  count = var.az_index == 0 && var.region_index == 0 ? 3 : 1
 
   az_name       = var.az_name
   vpc_id        = var.vpc_id
@@ -11,6 +11,8 @@ module "subnets" {
   az_index      = var.az_index
   subnet_index  = count.index
   instance_type = var.instance_type
+  route_table_id = var.route_table_id
+  tg_id          = var.tg_id
 
   source = "../subnet"
 }

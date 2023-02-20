@@ -1,8 +1,3 @@
-variable "base_image_id" {
-  type        = string
-  description = "AMI id to use"
-}
-
 variable "ssh_key_name" {
   type        = string
   description = "The name of the SSH key to add to all servers"

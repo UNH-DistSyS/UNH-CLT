@@ -43,3 +43,12 @@ variable "instance_type" {
   description = "What type of instance to use"
   default     = "t3.small"
 }
+
+variable "route_table_id" {
+  type = string
+  description = "The id of the route table"
+}
+variable "tg_id" {
+  type = string
+  description = "transit gateway id"
+}

@@ -6,15 +6,20 @@ variable "ssh_key_name" {
 variable "instance_type" {
   type        = string
   description = "What type of instance to use"
-  default     = "t3.small"
+  default     = "t4g.nano"
 }
 
-variable "region_index" {
-  type = number
-  description = "Which region number this is"
-}
-
-variable "region_name" {
-  type = string
+variable "region_0_name" {
+  type        = string
   description = "The name of region 0"
+}
+
+variable "region_1_name" {
+  type        = string
+  description = "The name of region 1"
+}
+
+variable "region_2_name" {
+  type        = string
+  description = "The name of region 2"
 }

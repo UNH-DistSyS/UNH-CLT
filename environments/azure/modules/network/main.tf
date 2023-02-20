@@ -6,7 +6,7 @@ resource "azurerm_virtual_network" "network" {
 }
 
 module "subnet" {
-  count = var.network_index == 0 && var.region_index == 0 ? 2 : 1
+  count = var.network_index == 0 && var.region_index == 0 ? 3 : 1
 
   network_index = var.network_index
   subnet_index = count.index
