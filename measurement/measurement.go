@@ -5,6 +5,7 @@ package measurement
 
 import (
 	"encoding/csv"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -16,7 +17,7 @@ import (
 // local Epoch equal to January 1, 2023 00:00:00 UTC
 const (
 	START_EPOCH int64  = 1672531200000000
-	DIRECTORY   string = "raw_data/"
+	DIRECTORY   string = "raw_data"
 )
 
 type Measurement struct {
@@ -40,7 +41,7 @@ type measurementRow struct {
 
 /* When nodes stop, they must call this function to flush remaining data to file */
 func (m *Measurement) Close() {
-	go flush(m.data, m.prefix, m.fileCounter)
+	flush(m.data, m.prefix, m.fileCounter)
 }
 
 func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
@@ -73,12 +74,13 @@ func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, s
 * a certain threshold is reached.
  */
 func flush(data []measurementRow, prefix string, counter int) {
-	err := os.Mkdir(DIRECTORY, os.ModePerm) //assert directory exists or creates one
+	err := os.MkdirAll(DIRECTORY, os.ModePerm) //assert directory exists or creates one
 	if err != nil {
-		log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)
+		//log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)
 	}
-	fileName := DIRECTORY + prefix + "_" + strconv.Itoa(counter) + ".csv"
+	fileName := DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv"
 	file, err := os.Create(fileName)
+	fmt.Println("HERE")
 	defer file.Close()
 	if err != nil {
 		log.Fatalf("Failed to create file %s", fileName)

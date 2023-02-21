@@ -2,13 +2,14 @@ package measurement
 
 import (
 	"encoding/csv"
-	"fmt"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
+	"github.com/UNH-DistSyS/UNH-CLT/log"
+	"github.com/stretchr/testify/assert"
 )
 
 /***********************************************************************************************************************
@@ -50,28 +51,18 @@ func DoMeasurement(m *Measurement, remoteId *ids.ID) (int64, int64) {
 func TestNewMeasurement(t *testing.T) {
 	listSizeTestParam := 10
 	m := CreateMeasurement(listSizeTestParam)
+	log.Debugf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
 
-	if DEBUG {
-		fmt.Printf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
-	}
-
-	if m.fileCounter != 0 {
-		t.Fatalf("Measurement structure file counter not initialized to 0")
-	}
-	if len(m.data) != 0 {
-		t.Fatalf("length of initialized list is: %d, exepcted: %d", len(m.data), 0)
-	}
+	assert.Equal(t, 0, m.fileCounter, "Measurement structure file counter not initialized to 0")
+	assert.Equal(t, 0, len(m.data), "length of initialized list is: %d, exepcted: %d", len(m.data), 0)
+	m.Close()
 }
 
 func TestEpoch(t *testing.T) {
 	correctTimeMicro := time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)
-	if DEBUG {
-		fmt.Printf("Epoch time should be equal to %s = %d\n", correctTimeMicro.String(), correctTimeMicro.UnixMicro())
-	}
+	log.Debugf("Epoch time should be equal to %s = %d\n", correctTimeMicro.String(), correctTimeMicro.UnixMicro())
 
-	if correctTimeMicro.UnixMicro() != START_EPOCH {
-		t.Fatalf("Epoch is %d but should be %d\n", START_EPOCH, correctTimeMicro.UnixMicro())
-	}
+	assert.Equal(t, START_EPOCH, correctTimeMicro.UnixMicro(), "Epoch is %d but should be %d\n", START_EPOCH, correctTimeMicro.UnixMicro())
 }
 
 func TestAddMeasurementOnce(t *testing.T) {
@@ -82,19 +73,13 @@ func TestAddMeasurementOnce(t *testing.T) {
 	s, e := DoMeasurement(m, fakeNodeId)
 
 	entry := m.data[0]
-	if DEBUG {
-		fmt.Printf("Measurement: %d, %d, %d, %d, %d\n", m.thisNodeId.Int(), entry.round, entry.remoteNodeId.Int(), entry.start, entry.end)
-	}
+	log.Debugf("Measurement: %d, %d, %d, %d, %d\n", m.thisNodeId.Int(), entry.round, entry.remoteNodeId.Int(), entry.start, entry.end)
 
-	if entry.remoteNodeId.Int() != fakeNodeId.Int() {
-		t.Fatalf("wrong remote node id recorded")
-	}
-	if entry.start != s {
-		t.Fatalf("wrong start time recorded: %d instead of %d", entry.start, s)
-	}
-	if entry.end != e {
-		t.Fatalf("wrong end time recorded")
-	}
+	assert.Equal(t, fakeNodeId.Int(), entry.remoteNodeId.Int(), "wrong remote node id recorded")
+	assert.Equal(t, s, entry.start, "wrong start time recorded: %d instead of %d", entry.start, s)
+	assert.Equal(t, e, entry.end, "wrong end time recorded")
+
+	m.Close()
 }
 
 func TestAddMeasurement100(t *testing.T) {
@@ -106,14 +91,10 @@ func TestAddMeasurement100(t *testing.T) {
 		s, e := DoMeasurement(m, fakeNodeId)
 
 		entry := m.data[i]
-		if entry.start != s {
-			t.Fatalf("wrong start time recorded: %d instead of %d at entry %d\n", entry.start, s, i)
-		}
-		if entry.end != e {
-			t.Fatalf("wrong end time recorded: %d instead of %d at entry %d\n", entry.end, e, i)
-		}
-
+		assert.Equal(t, s, entry.start, "wrong start time recorded: %d instead of %d at entry %d\n", entry.start, s, i)
+		assert.Equal(t, e, entry.end, "wrong end time recorded: %d instead of %d at entry %d\n", entry.end, e, i)
 	}
+	m.Close()
 }
 
 func TestFlushCSV(t *testing.T) {
@@ -125,27 +106,23 @@ func TestFlushCSV(t *testing.T) {
 		DoMeasurement(m, fakeNodeId)
 	}
 
-	if len(m.data) != 20 {
-		t.Fatalf("Expected list size %d but got %d\n", 20, len(m.data))
-	}
-	if m.fileCounter != 1 {
-		t.Fatalf("Expected file counter size %d but fot %d\n", 1, m.fileCounter)
-	}
+	assert.Equal(t, 20, len(m.data), "Expected list size %d but got %d\n", 20, len(m.data))
+	assert.Equal(t, 1, m.fileCounter, "Expected file counter size %d but fot %d\n", 1, m.fileCounter)
 
 	//sleep to allow time to write file
-	time.Sleep(time.Second * 2)
-	f, err := os.Open(DIRECTORY + testPrefix + "_0.csv")
-	if err != nil {
-		t.Fatalf("error: could not find csv file with appropriate name in current directory\n")
-	}
+	time.Sleep(time.Second * 1)
+
+	f, err := os.Open(DIRECTORY + "/" + testPrefix + "_0.csv")
+	assert.Equal(t, nil, err, "error: could not find csv file with appropriate name in current directory\n")
+
 	r := csv.NewReader(f)
+
 	//process header
-	if _, err := r.Read(); err != nil {
-		t.Fatalf("error: empty file\n")
-	}
+	_, err = r.Read()
+	assert.Equal(t, nil, err, "error: empty file\n")
 
 	rows, _ := r.ReadAll()
-	if len(rows) != listSizeTestParam {
-		t.Fatalf("error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
-	}
+	assert.Equal(t, listSizeTestParam, len(rows), "error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
+
+	m.Close()
 }
