@@ -35,6 +35,10 @@ type Config struct {
 	CommunicationTimeoutMs int `json:"communication_timeout_ms"` // a timeout for a single attempt of round-trip communication
 	RoundTimeoutMs         int `json:"round_timeout_ms"`         // round timeout. A round may have multiple communication attempts
 	RequestTimeoutMs       int `json:"requet_timeout_ms"`        // request timeout on server side
+
+	//Data output variables
+	CsvPrefix      string `json:"csv_prefix"`       //configurable prefix for output csv data files
+	RowOutputLimit int    `json:"row_output_limit"` //configurable paramater for limit on number of output rows in csv files
 }
 
 func MakeDefaultConfig() *Config {
@@ -51,6 +55,9 @@ func MakeDefaultConfig() *Config {
 	config.RoundTimeoutMs = 400
 	config.CommunicationTimeoutMs = 100
 	config.ClusterMembership.RefreshIdsFromAddresses()
+
+	config.CsvPrefix = "test"
+	config.RowOutputLimit = 2000000
 	return config
 }
 

@@ -14,7 +14,10 @@ import (
 )
 
 // local Epoch equal to January 1, 2023 00:00:00 UTC
-const _startEpoch int64 = 1672531200000000
+const (
+	START_EPOCH int64  = 1672531200000000
+	DIRECTORY   string = "raw_data"
+)
 
 type Measurement struct {
 	thisNodeId *ids.ID
@@ -29,15 +32,20 @@ type Measurement struct {
 
 type measurementRow struct {
 	thisNodeId   *ids.ID //id of node using Measurement
-	round        int64   //round ID
+	round        uint64  //round ID
 	remoteNodeId *ids.ID //remote node ID that is being measured
 	start        int64   //begin time, in microseconds
 	end          int64   //end time, in microseconds
 }
 
-func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
-	modifiedStart := startTime - _startEpoch
-	modifiedEnd := endTime - _startEpoch
+/* When nodes stop, they must call this function to flush remaining data to file */
+func (m *Measurement) Close() {
+	flush(m.data, m.prefix, m.fileCounter)
+}
+
+func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
+	modifiedStart := startTime - START_EPOCH
+	modifiedEnd := endTime - START_EPOCH
 
 	row := measurementRow{
 		thisNodeId:   m.thisNodeId,
@@ -65,7 +73,11 @@ func (m *Measurement) AddMeasurement(roundNumber int64, remoteNodeID *ids.ID, st
 * a certain threshold is reached.
  */
 func flush(data []measurementRow, prefix string, counter int) {
-	fileName := prefix + "_" + strconv.Itoa(counter) + ".csv"
+	err := os.MkdirAll(DIRECTORY, os.ModePerm) //assert directory exists or creates one
+	if err != nil {
+		//log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)
+	}
+	fileName := DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv"
 	file, err := os.Create(fileName)
 	defer file.Close()
 	if err != nil {
@@ -80,7 +92,7 @@ func flush(data []measurementRow, prefix string, counter int) {
 	for _, item := range data {
 		w.Write([]string{
 			item.thisNodeId.String(),
-			strconv.FormatInt(item.round, 10),
+			strconv.FormatUint(item.round, 10),
 			item.remoteNodeId.String(),
 			strconv.FormatInt(item.start, 10),
 			strconv.FormatInt(item.end, 10),
