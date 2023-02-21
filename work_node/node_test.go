@@ -3,6 +3,8 @@ package work_node
 // Only run tests one by one, don't run the package. Since there's no method for Nodes to stop.
 
 import (
+	"encoding/csv"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -127,5 +129,39 @@ func TestBroadcastPing(t *testing.T) {
 	}
 	for i := range nodes {
 		nodes[i].Close()
+	}
+}
+
+/***************************************************************************
+*					Measurement Integration Tests						   *
+****************************************************************************/
+
+var directory string = "raw_data/"
+
+func TestNodeRecordsMeasurement(t *testing.T) {
+	//initial setup
+	id1 := *ids.GetIDFromString("1.1")
+	id2 := *ids.GetIDFromString("1.2")
+	id3 := *ids.GetIDFromString("1.3")
+	testids := []ids.ID{id1, id2, id3}
+	setupNodeTests(t, testids)
+
+	//do some work
+	master.Broadcast(messages.StartLatencyTest{
+		ID:                    0,
+		TestingDurationSecond: -1}, false)
+	time.Sleep(time.Second)
+
+	//close nodes and assert csv files created appropriately and not empty
+	for i := range nodes {
+		nodes[i].Close()
+
+		filePath := directory + nodes[i].cfg.CsvPrefix + "_" + nodes[i].id.String() + "_" + "0.csv"
+		f, err := os.Open(filePath)
+		assert.Equal(t, nil, err, "Failed to open csv file with path %v", filePath)
+
+		r := csv.NewReader(f)
+		_, err = r.Read()
+		assert.Equal(t, nil, err, "error: empty file\n")
 	}
 }

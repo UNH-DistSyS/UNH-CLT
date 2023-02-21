@@ -9,6 +9,7 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/config"
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 	"github.com/UNH-DistSyS/UNH-CLT/log"
+	"github.com/UNH-DistSyS/UNH-CLT/measurement"
 	"github.com/UNH-DistSyS/UNH-CLT/messages"
 	"github.com/UNH-DistSyS/UNH-CLT/netwrk"
 	"github.com/UNH-DistSyS/UNH-CLT/operation_dispatcher"
@@ -23,7 +24,8 @@ type Node struct {
 	muRand                   sync.Mutex
 	idx                      uint64
 	stopCh                   chan bool
-	recorded                 uint64 //for testing purporse, will be removed once mearsument is attached.
+	recorded                 uint64
+	measurement              *measurement.Measurement
 	latencyTestingInProgress bool
 }
 
@@ -38,6 +40,7 @@ func NewNode(cfg *config.Config, identity ids.ID) *Node {
 		idx:                      0,
 		latencyTestingInProgress: false,
 		cfg:                      cfg,
+		measurement:              measurement.NewMeasurement(&identity, cfg.CsvPrefix+"_"+identity.String(), cfg.RowOutputLimit),
 	}
 
 	n.netman.Register(messages.ConfigMsg{}, n.HandleConfigMsg)
@@ -52,6 +55,7 @@ func (n *Node) Run() {
 }
 func (n *Node) Close() {
 	n.netman.Close()
+	n.measurement.Close()
 }
 func (n *Node) stopTesting() {
 	n.mu.Lock()
@@ -210,12 +214,13 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 }
 
 func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg messages.Pong) {
-	// TODO: here we record the measurement
 
-	// The three lines of code are for testing, remove this once measurement is attached.
+	endTimeMicroseconds := time.Now().UnixMicro()
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.recorded = utils.Uint64Max(n.recorded, pongMsg.RoundNumber)
+	n.recorded = utils.Uint64Max(n.recorded, pongMsg.RoundNumber) //not necessary now that measurement added, but tests depend on it
+
+	n.measurement.AddMeasurement(pongMsg.RoundNumber, &pongMsg.ReplyingNodeId, startTimeMicroseconds, endTimeMicroseconds)
 }
 
 func (n *Node) ReturnRecorded() uint64 {

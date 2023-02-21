@@ -37,9 +37,9 @@ func DoMeasurement(m *Measurement, remoteId *ids.ID) (int64, int64) {
 	e := s + SimulateWork()
 
 	//add m
-	m.AddMeasurement(int64(100), remoteId, s, e)
-	s -= _startEpoch
-	e -= _startEpoch
+	m.AddMeasurement(uint64(100), remoteId, s, e)
+	s -= START_EPOCH
+	e -= START_EPOCH
 	return s, e
 }
 
@@ -69,8 +69,8 @@ func TestEpoch(t *testing.T) {
 		fmt.Printf("Epoch time should be equal to %s = %d\n", correctTimeMicro.String(), correctTimeMicro.UnixMicro())
 	}
 
-	if correctTimeMicro.UnixMicro() != _startEpoch {
-		t.Fatalf("Epoch is %d but should be %d\n", _startEpoch, correctTimeMicro.UnixMicro())
+	if correctTimeMicro.UnixMicro() != START_EPOCH {
+		t.Fatalf("Epoch is %d but should be %d\n", START_EPOCH, correctTimeMicro.UnixMicro())
 	}
 }
 
@@ -134,7 +134,7 @@ func TestFlushCSV(t *testing.T) {
 
 	//sleep to allow time to write file
 	time.Sleep(time.Second * 2)
-	f, err := os.Open(testPrefix + "_0.csv")
+	f, err := os.Open(DIRECTORY + testPrefix + "_0.csv")
 	if err != nil {
 		t.Fatalf("error: could not find csv file with appropriate name in current directory\n")
 	}
