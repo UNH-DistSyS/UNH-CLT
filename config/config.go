@@ -15,6 +15,7 @@ const (
 	OP_DISPATCHER_CONCURRENCY = 5
 	DEFAULT_PAYLOAD           = 1024
 	SELF_LOOP                 = true
+	TESTING_DURATION_MINUTE   = 1
 )
 
 /**
@@ -28,8 +29,8 @@ type Config struct {
 	OpDispatchConcurrency int                     `json:"op_dispatch_concurrency"` // concurrency level for concurrent dispatcher
 	PayLoadSize           int                     `json:"payload_size"`            // size of payload
 	SelfLoop              bool                    `json:"self_loop"`               // whether to send ping messages to self
-
-	TestingRateS uint64 `json:"testing_rate_s"` // rate at which a node produces ping-pong rounds.
+	TestingDurationMinute int                     `json:"testing_duration_minutes"`
+	TestingRateS          uint64                  `json:"testing_rate_s"` // rate at which a node produces ping-pong rounds.
 
 	// Server-side simeouts
 	CommunicationTimeoutMs int `json:"communication_timeout_ms"` // a timeout for a single attempt of round-trip communication
@@ -46,6 +47,7 @@ func MakeDefaultConfig() *Config {
 	config.OpDispatchConcurrency = OP_DISPATCHER_CONCURRENCY
 	config.SelfLoop = SELF_LOOP
 	config.PayLoadSize = DEFAULT_PAYLOAD
+	config.TestingDurationMinute = TESTING_DURATION_MINUTE
 
 	config.RequestTimeoutMs = 900
 	config.RoundTimeoutMs = 400

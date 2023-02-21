@@ -104,6 +104,7 @@ func TestStartStop(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		idxs3[i] = nodes[i].ReturnRecorded()
 	}
+
 	for i := 0; i < 3; i++ {
 		assert.NotEqual(t, true, idxs[i] < 100 || idxs[i] != idxs2[i] || idxs2[i] != idxs3[i]+1, "Node %d failed start stop test with %v, %v, %v, %v", i, idxs[i], idxs2[i], idxs3[i], nodes[i].cfg)
 	}

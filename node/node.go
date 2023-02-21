@@ -61,7 +61,7 @@ func (n *Node) stopTesting() {
 
 func (n *Node) stopAfter(testDuration int) {
 	time.Sleep(time.Second * time.Duration(testDuration))
-	n.stopTesting()
+	go n.stopTesting()
 }
 
 /***********************************************************************************************************************
@@ -75,6 +75,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.TestingRateS = msg.TestingRateS
 	n.cfg.SelfLoop = msg.SelfLoop
 	n.cfg.ClusterMembership.Addrs = msg.Addrs
+	n.cfg.TestingDurationMinute = msg.TestingDurationMinute
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
@@ -112,6 +113,8 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.Start
 	go n.senderTicker()
 	if msg.TestingDurationSecond > 0 {
 		go n.stopAfter(msg.TestingDurationSecond)
+	} else {
+		go n.stopAfter(n.cfg.TestingDurationMinute * 60)
 	}
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
