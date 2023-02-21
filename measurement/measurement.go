@@ -5,7 +5,6 @@ package measurement
 
 import (
 	"encoding/csv"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -80,7 +79,6 @@ func flush(data []measurementRow, prefix string, counter int) {
 	}
 	fileName := DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv"
 	file, err := os.Create(fileName)
-	fmt.Println("HERE")
 	defer file.Close()
 	if err != nil {
 		log.Fatalf("Failed to create file %s", fileName)
