@@ -28,11 +28,12 @@ type ReplyToMaster struct {
 type ConfigMsg struct {
 	ID int
 	// Cfg config.Config // used to overwrite the default config of the node with a config from master_node
-	PayLoadSize  int
-	TestingRateS uint64
-	SelfLoop     bool
-	Nodes        map[ids.ID]config.NodeInfo
-	C            chan ReplyToMaster
+	PayLoadSize           int
+	TestingRateS          uint64
+	SelfLoop              bool
+	Nodes                 map[ids.ID]config.NodeInfo
+	TestingDurationMinute int
+	C                     chan ReplyToMaster
 }
 
 func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
@@ -40,6 +41,7 @@ func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
 	c.TestingRateS = cfg.TestingRateS
 	c.SelfLoop = cfg.SelfLoop
 	c.Nodes = cfg.ClusterMembership.Addrs
+	c.TestingDurationMinute = cfg.TestingDurationMinute
 	return true
 }
 
