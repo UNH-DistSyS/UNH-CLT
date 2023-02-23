@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
@@ -36,15 +35,7 @@ type ClusterMembershipConfig struct {
 
 func MakeDefaultClusterMembershipConfig() *ClusterMembershipConfig {
 	config := new(ClusterMembershipConfig)
-
-	dummyNode := NodeInfo{
-		NodeId:         *ids.GetIDFromString("1.1"),
-		PrivateAddress: "tcp://127.0.0.1:" + strconv.Itoa(PORT),
-		PublicAddress:  "tcp://127.0.0.1:" + strconv.Itoa(PORT),
-	}
-
-	config.Addrs = map[ids.ID]NodeInfo{*ids.GetIDFromString("1.1"): dummyNode}
-
+	config.Addrs = make(map[ids.ID]NodeInfo)
 	config.RefreshIdsFromAddresses()
 	return config
 }
