@@ -36,7 +36,7 @@ func SetupThreeNodeTest() {
 	for _, identity := range nids {
 		log.Infof("starting Node %v", identity)
 		workNode := work_node.NewNode(cfg, identity)
-		workNode.Run()
+		go workNode.Run()
 		nodes[identity] = workNode
 	}
 

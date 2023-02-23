@@ -11,6 +11,7 @@ import (
 var privateAddress = flag.String("privateAddress", "tcp://127.0.0.1:1735", "The private interface this node will listen on")
 var publicAddress = flag.String("publicAddress", "tcp://127.0.0.1:1735", "The public interface this node will listen on")
 
+// node -id=1.1 -privateAddress=tcp://127.0.0.1:1735 -publicAddress=tcp://127.0.0.1:1735
 func main() {
 	flag.Parse()
 	id := ids.GetIDFromFlag()

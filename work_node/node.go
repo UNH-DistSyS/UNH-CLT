@@ -24,6 +24,7 @@ type Node struct {
 	muRand                   sync.Mutex
 	idx                      uint64
 	stopCh                   chan bool
+	closeCh                  chan bool
 	recorded                 uint64
 	measurement              *measurement.Measurement
 	latencyTestingInProgress bool
@@ -36,7 +37,8 @@ func NewNode(cfg *config.Config, identity ids.ID) *Node {
 	n := &Node{
 		netman:                   netman,
 		id:                       &identity,
-		stopCh:                   make(chan bool, cfg.ChanBufferSize), //donot block
+		stopCh:                   make(chan bool, 1), //donot block
+		closeCh:                  make(chan bool, 1),
 		idx:                      0,
 		latencyTestingInProgress: false,
 		cfg:                      cfg,
@@ -52,10 +54,12 @@ func NewNode(cfg *config.Config, identity ids.ID) *Node {
 
 func (n *Node) Run() {
 	n.netman.Run()
+	<-n.closeCh
 }
 func (n *Node) Close() {
 	n.netman.Close()
 	n.measurement.Close()
+	n.closeCh <- true
 }
 func (n *Node) stopTesting() {
 	n.mu.Lock()
