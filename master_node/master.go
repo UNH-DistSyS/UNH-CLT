@@ -37,25 +37,31 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 }
 
 func (m *Master) HandleReply(ctx context.Context, msg messages.ReplyToMaster) {
-	log.Infof("Master %v received reply %v", m.id, msg)
 	m.Lock()
-	defer m.Unlock()
-	m.replyChans[m.msgID] <- msg.Ok
+	replyChan := m.replyChans[m.msgID]
+	m.Unlock()
+	log.Infof("Master %v received reply %v", m.id, msg)
+	if replyChan == nil {
+		log.Errorf("Reply chan is nil")
+	}
+	replyChan <- msg.Ok
 }
 
 func (m *Master) broadcastMsg(id int, msg interface{}) bool {
 	log.Debugf("Master %s is sending msg %v", m.id, msg)
-	m.netman.Broadcast(msg, false) // broadcast msg
 	m.Lock()
 	replyCh := make(chan bool, m.cfg.ChanBufferSize)
+	log.Debugf("Master making reply chan for msgId %d", id)
 	m.replyChans[id] = replyCh
 	m.Unlock()
+	m.netman.Broadcast(msg, false) // broadcast msg
 	expected := len(m.cfg.ClusterMembership.Addrs)
 	received := 0
 	for {
 		select {
 		case ok := <-replyCh:
 			received++
+			log.Debugf("Master received %d OKs", received)
 			if !ok {
 				m.Lock()
 				m.replyChans[id] = nil

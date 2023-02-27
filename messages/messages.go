@@ -25,6 +25,10 @@ type ReplyToMaster struct {
 	From ids.ID
 }
 
+func (r ReplyToMaster) String() string {
+	return fmt.Sprintf("ReplyToMaster {MsgID=%d, Ok=%t; Node=%v}", r.ID, r.Ok, r.From)
+}
+
 type ConfigMsg struct {
 	ID int
 	// Cfg config.Config // used to overwrite the default config of the node with a config from master_node

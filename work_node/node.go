@@ -78,7 +78,7 @@ func (n *Node) stopAfter(testDuration int) {
 
 func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.mu.Lock()
-	log.Infof("Node %v received new config msg", n.id)
+	log.Infof("Node %v received new config msg: %v", n.id, msg)
 	n.cfg.PayLoadSize = msg.PayLoadSize
 	n.cfg.TestingRateS = msg.TestingRateS
 	n.cfg.SelfLoop = msg.SelfLoop

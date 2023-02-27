@@ -7,3 +7,5 @@
 .DS_Store
 .gitignore
 */raw_data/
+/bin/master
+/bin/node
