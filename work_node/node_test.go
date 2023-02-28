@@ -40,7 +40,7 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 		dummyNodeCfg := config.MakeDefaultConfig()
 		dummyNodeCfg.ClusterMembership.AddNodeAddress(nodeIds[i], "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i), "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i))
 		node := NewNode(dummyNodeCfg, nodeIds[i])
-		node.Run()
+		go node.Run()
 		nodes = append(nodes, node)
 	}
 	//setting up master

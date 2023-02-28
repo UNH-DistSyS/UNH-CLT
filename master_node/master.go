@@ -39,6 +39,13 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 func (m *Master) HandleReply(ctx context.Context, msg messages.ReplyToMaster) {
 	m.Lock()
 	replyChan := m.replyChans[m.msgID]
+	if msg.ID == 0 {
+		log.Debugf("HI! %v", m.replyChans)
+		replyChan2 := m.replyChans[0]
+		if replyChan2 != replyChan {
+			log.Errorf("WTF")
+		}
+	}
 	m.Unlock()
 	log.Infof("Master %v received reply %v", m.id, msg)
 	if replyChan == nil {
