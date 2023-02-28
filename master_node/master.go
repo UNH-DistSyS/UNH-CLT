@@ -17,7 +17,7 @@ type Master struct {
 	netman     netwrk.Communicator
 	cfg        *config.Config
 	id         ids.ID
-	msgID      int
+	msgCounter int
 	replyChans map[int]chan bool
 	sync.Mutex
 }
@@ -95,14 +95,14 @@ func (m *Master) Close() {
 func (m *Master) BroadcastConfig() bool {
 	m.Mutex.Lock()
 	msg := messages.ConfigMsg{
-		ID:                    m.msgID,
+		ID:                    m.msgCounter,
 		PayLoadSize:           m.cfg.PayLoadSize,
 		TestingRateS:          m.cfg.TestingRateS,
 		SelfLoop:              m.cfg.SelfLoop,
 		Nodes:                 m.cfg.ClusterMembership.Addrs,
 		TestingDurationMinute: m.cfg.TestingDurationMinute,
 	}
-	m.msgID++
+	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
 
@@ -110,10 +110,10 @@ func (m *Master) BroadcastConfig() bool {
 func (m *Master) Start(testDuration int) bool {
 	m.Mutex.Lock()
 	msg := messages.StartLatencyTest{
-		ID:                    m.msgID,
+		ID:                    m.msgCounter,
 		TestingDurationSecond: testDuration,
 	}
-	m.msgID++
+	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
 
@@ -122,9 +122,9 @@ func (m *Master) Start(testDuration int) bool {
 func (m *Master) Stop() bool {
 	m.Mutex.Lock()
 	msg := messages.StopLatencyTest{
-		ID: m.msgID,
+		ID: m.msgCounter,
 	}
-	m.msgID++
+	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
 
