@@ -108,6 +108,11 @@ func (m *Master) BroadcastConfig() bool {
 
 }
 func (m *Master) Start(testDuration int) bool {
+	if !m.BroadcastConfig() {
+		log.Errorln("BroadcastConfig failed!")
+		return false
+	}
+
 	m.Mutex.Lock()
 	msg := messages.StartLatencyTest{
 		ID:                    m.msgCounter,
@@ -120,6 +125,7 @@ func (m *Master) Start(testDuration int) bool {
 }
 
 func (m *Master) Stop() bool {
+
 	m.Mutex.Lock()
 	msg := messages.StopLatencyTest{
 		ID: m.msgCounter,

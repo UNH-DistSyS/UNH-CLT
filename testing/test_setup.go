@@ -35,6 +35,7 @@ func SetupThreeNodeTest() {
 	nodes = make(map[ids.ID]*work_node.Node, len(cfg.ClusterMembership.IDs))
 	for _, identity := range nids {
 		log.Infof("starting Node %v", identity)
+		//conf := config.MakeDefaultConfig()
 		workNode := work_node.NewNode(cfg, identity)
 		go workNode.Run()
 		nodes[identity] = workNode

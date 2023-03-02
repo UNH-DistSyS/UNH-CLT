@@ -38,6 +38,9 @@ type ConfigMsg struct {
 	Nodes                 map[ids.ID]config.NodeInfo
 	TestingDurationMinute int
 	C                     chan ReplyToMaster
+
+	CsvPrefix      string
+	RowOutputLimit int
 }
 
 func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {

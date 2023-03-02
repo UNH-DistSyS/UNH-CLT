@@ -5,12 +5,12 @@ package measurement
 
 import (
 	"encoding/csv"
-	"log"
 	"os"
 	"strconv"
 	"sync"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
+	"github.com/UNH-DistSyS/UNH-CLT/log"
 )
 
 // local Epoch equal to January 1, 2023 00:00:00 UTC
@@ -73,6 +73,7 @@ func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, s
 * a certain threshold is reached.
  */
 func flush(data []measurementRow, prefix string, counter int) {
+	log.Debugf("Flushing output")
 	err := os.MkdirAll(DIRECTORY, os.ModePerm) //assert directory exists or creates one
 	if err != nil {
 		//log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)

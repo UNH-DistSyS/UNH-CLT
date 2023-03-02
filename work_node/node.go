@@ -84,6 +84,8 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.SelfLoop = msg.SelfLoop
 	n.cfg.ClusterMembership.Addrs = msg.Nodes
 	n.cfg.TestingDurationMinute = msg.TestingDurationMinute
+	n.cfg.CsvPrefix = msg.CsvPrefix
+	n.cfg.RowOutputLimit = msg.RowOutputLimit
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
@@ -222,6 +224,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 
 func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg messages.Pong) {
 
+	//log.Debug("Node %v receiving pong: %v", n.id, pongMsg)
 	endTimeMicroseconds := time.Now().UnixMicro()
 	n.mu.Lock()
 	defer n.mu.Unlock()

@@ -33,9 +33,5 @@ func main() {
 		if !master.Start(*d) {
 			log.Errorln("Start failed!")
 		}
-	} else {
-		if !master.BroadcastConfig() {
-			log.Errorln("BroadcastConfig failed!")
-		}
 	}
 }
