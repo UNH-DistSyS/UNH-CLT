@@ -41,7 +41,7 @@ type Config struct {
 	//Data output variables
 	CsvPrefix      string `json:"csv_prefix"`       //configurable prefix for output csv data files
 	RowOutputLimit int    `json:"row_output_limit"` //configurable paramater for limit on number of output rows in csv files
-	HistoryDir     string `json:"history_dir"`
+	HistoryDir     string `json:"history_dir"`      //configurable history file dir
 }
 
 func MakeDefaultConfig() *Config {

@@ -262,7 +262,7 @@ func (m *Master) Download(duration int) {
 		<-ticker.C
 		for _, id := range m.cfg.ClusterMembership.IDs {
 			start, end := m.GetFileIdxes(id)
-			m.CopyFileFromRemoteToLocal(id, start, end, "")
+			m.CopyFileFromRemoteToLocal(id, start, end, m.cfg.HistoryDir)
 			m.DeleteFile(id, start, end)
 		}
 	}
