@@ -136,7 +136,11 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.Start
 
 func (n *Node) HandleStopLatencyTest(ctx context.Context, msg messages.StopLatencyTest) {
 	log.Infof("Node %v trying to stop", n.id)
-	n.stopTesting()
+	if msg.Close {
+		n.Close()
+	} else {
+		n.stopTesting()
+	}
 	msg.C <- messages.ReplyToMaster{
 		ID: msg.ID,
 		Ok: true,

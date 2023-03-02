@@ -1,6 +1,9 @@
 package general_testing
 
 import (
+	"io/ioutil"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -67,4 +70,72 @@ func TestOneSecond(t *testing.T) {
 	}
 	master.Close()
 	time.Sleep(time.Second)
+}
+
+func Test_GetIdx(t *testing.T) {
+	SetupConfig()
+	SetupMaster()
+	SetupThreeNodeTest()
+
+	file, _ := os.Create("/Users/noahcui/Desktop/Github-repos/research/UNH-CLT/testing/test_files/testing_1.1_5.csv")
+	file1, _ := os.Create("/Users/noahcui/Desktop/Github-repos/research/UNH-CLT/testing/test_files/testing_1.2_5.csv")
+	file2, _ := os.Create("/Users/noahcui/Desktop/Github-repos/research/UNH-CLT/testing/test_files/testing_1.0_5.csv")
+
+	file.Close()
+	file1.Close()
+	file2.Close()
+
+	for _, id := range nids {
+		start, end := master.GetFileIdxes(id)
+		assert.Equal(t, 0, start, "start: %v", start)
+		assert.Equal(t, 2, end, "end: %v", end)
+	}
+	for _, node := range nodes {
+		node.Close()
+	}
+	master.Close()
+}
+func Test_Download(t *testing.T) {
+	SetupConfig()
+	SetupMaster()
+	SetupThreeNodeTest()
+	file_content := "thisNodeId,roundNumber,remoteNodeId,startTime,endTime\n1.1,0,1.1,4476361270299,4476361270406"
+	for i := 0; i < 3; i++ {
+		for _, id := range nids {
+			file, _ := os.Create("/Users/noahcui/test_files/" + id.String() + "/testing_" + id.String() + "_" + strconv.Itoa(i) + ".csv")
+			file.WriteString(file_content)
+			file.Close()
+		}
+	}
+
+	var start, end int
+	for _, id := range nids {
+		start, end = master.GetFileIdxes(id)
+		assert.Equal(t, 0, start, "start: %v", start)
+		assert.Equal(t, 2, end, "end: %v", end)
+	}
+
+	for _, id := range nids {
+		master.CopyFileFromRemoteToLocal(id, start, end, id.String()+"/")
+	}
+
+	for i := 0; i < 3; i++ {
+		for _, id := range nids {
+			filename := "/Users/noahcui/test_files/" + id.String() + "/testing_" + id.String() + "_" + strconv.Itoa(i) + ".csv"
+			content, _ := ioutil.ReadFile(filename)
+			assert.Equal(t, file_content, string(content))
+		}
+	}
+
+	for _, id := range nids {
+		master.DeleteFile(id, start, end)
+		s1, e1 := master.GetFileIdxes(id)
+		assert.Equal(t, s1, 2)
+		assert.Equal(t, e1, 2)
+	}
+
+	for _, node := range nodes {
+		node.Close()
+	}
+	master.Close()
 }

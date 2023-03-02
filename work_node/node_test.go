@@ -40,7 +40,7 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 		dummyNodeCfg := config.MakeDefaultConfig()
 		dummyNodeCfg.ClusterMembership.AddNodeAddress(nodeIds[i], "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i), "tcp://127.0.0.1:"+strconv.Itoa(config.PORT+i))
 		node := NewNode(dummyNodeCfg, nodeIds[i])
-		node.Run()
+		go node.Run()
 		nodes = append(nodes, node)
 	}
 	//setting up master
@@ -48,7 +48,7 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 	cid := ids.NewClientID(1, 1)
 	cdispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*cid, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
 	master = netwrk.NewMasterCommunicator(cfg, *cid, cdispatcher)
-	master.Run()
+	go master.Run()
 	cfgMsg := messages.ConfigMsg{}
 	cfgMsg.MakeConfigMsg(cfg)
 	master.Broadcast(cfgMsg, false)

@@ -56,8 +56,9 @@ type StartLatencyTest struct {
 }
 
 type StopLatencyTest struct {
-	ID int
-	C  chan ReplyToMaster
+	ID    int
+	Close bool
+	C     chan ReplyToMaster
 }
 
 type Ping struct {

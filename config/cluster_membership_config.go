@@ -11,6 +11,9 @@ type NodeInfo struct {
 	NodeId         ids.ID
 	PrivateAddress string
 	PublicAddress  string
+	CSV_prefix     string
+	RSA_path       string
+	Usr_name       string
 }
 
 type ClusterMembershipConfig struct {
@@ -18,6 +21,9 @@ type ClusterMembershipConfig struct {
 	// network, while public addresses are for talking across regions
 	PrivateAddrsStr map[string]string `json:"private_address"` // private address for node communication
 	PublicAddrsStr  map[string]string `json:"public_address"`  // public address for node communication if different from private.
+	CSV_prefix      map[string]string `json:"csv_prefix"`      //CSV prefix
+	RSA_path        map[string]string `json:"rsa_path"`        // RSA key location
+	Usr_name        map[string]string `json:"usr_name"`        // usr name for ssh
 
 	/************************************************************************************************************
 	 * Here are config parameters derived from the json file
@@ -120,6 +126,9 @@ func (c *ClusterMembershipConfig) Init() {
 			NodeId:         *id,
 			PrivateAddress: addr,
 			PublicAddress:  c.PublicAddrsStr[idStr],
+			CSV_prefix:     c.CSV_prefix[idStr],
+			RSA_path:       c.RSA_path[idStr],
+			Usr_name:       c.Usr_name[idStr],
 		}
 
 		c.Addrs[*id] = ni
