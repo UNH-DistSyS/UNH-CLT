@@ -16,7 +16,7 @@ var configFile = flag.String("config", "bin/config.json", "Configuration file fo
 var stop = flag.Bool("stop", false, "Flag to stop testing, defalut false")
 var start = flag.Bool("start", false, "Flag to start testing, defalut false")
 var close = flag.Bool("close", false, "Flag to close all nodes, defalut false")
-var d = flag.Int("test duration", -1, "Flag to setup test duration, default to infinity")
+var d = flag.Int("test duration", -1, "Flag to setup test duration, default to config duration")
 var download_data = flag.Int("download_data", -1, "Flag to download data every x min, default to -1(do not download)")
 
 // master -start -config=config.json
