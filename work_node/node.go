@@ -78,12 +78,14 @@ func (n *Node) stopAfter(testDuration int) {
 
 func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.mu.Lock()
-	log.Infof("Node %v received new config msg", n.id)
+	log.Infof("Node %v received new config msg: %v", n.id, msg)
 	n.cfg.PayLoadSize = msg.PayLoadSize
 	n.cfg.TestingRateS = msg.TestingRateS
 	n.cfg.SelfLoop = msg.SelfLoop
 	n.cfg.ClusterMembership.Addrs = msg.Nodes
 	n.cfg.TestingDurationMinute = msg.TestingDurationMinute
+	n.cfg.CsvPrefix = msg.CsvPrefix
+	n.cfg.RowOutputLimit = msg.RowOutputLimit
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
@@ -226,6 +228,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 
 func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg messages.Pong) {
 
+	//log.Debug("Node %v receiving pong: %v", n.id, pongMsg)
 	endTimeMicroseconds := time.Now().UnixMicro()
 	n.mu.Lock()
 	defer n.mu.Unlock()

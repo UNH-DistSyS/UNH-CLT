@@ -1,0 +1,24 @@
+{
+    "cluster_membership": {
+        "private_address": {
+            "1.1": "tcp://127.0.0.1:1735",
+            "1.2": "tcp://127.0.0.1:1736",
+            "1.3": "tcp://127.0.0.1:1737"
+        },
+        "public_address": {
+            "1.1": "tcp://127.0.0.1:1735",
+            "1.2": "tcp://127.0.0.1:1736",
+            "1.3": "tcp://127.0.0.1:1737"
+        }
+    },
+    "payload_size":1024,
+    "testing_rate_s":1000,
+    "self_loop":true,
+    "chan_buffer_size": 1024,
+    "op_dispatch_concurrency": 255,
+    "communication_timeout_ms": 100,
+    "round_timeout_ms": 290,
+    "request_timeout_ms": 550,
+    "csv_prefix": "testing",
+    "row_output_limit": 200000
+}

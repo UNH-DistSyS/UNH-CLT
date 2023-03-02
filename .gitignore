@@ -8,3 +8,5 @@
 .gitignore
 */raw_data/
 .DS_Store
+/bin/master
+/bin/node

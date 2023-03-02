@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"math/rand"
+	"time"
 
 	"github.com/UNH-DistSyS/UNH-CLT/log"
 	"github.com/UNH-DistSyS/UNH-CLT/master_node"
@@ -10,16 +12,18 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
 )
 
-var configFile = flag.String("config", "bin/config.json", "Configuration file for locusdb replica. Defaults to config.json.")
+var configFile = flag.String("config", "bin/config.json", "Configuration file for experiment. Defaults to config.json.")
 var stop = flag.Bool("stop", false, "Flag to stop testing, defalut false")
 var start = flag.Bool("start", false, "Flag to start testing, defalut false")
 var close = flag.Bool("close", false, "Flag to close all nodes, defalut false")
 var d = flag.Int("test duration", -1, "Flag to setup test duration, default to infinity")
 var download_data = flag.Int("download_data", -1, "Flag to download data every x min, default to -1(do not download)")
 
+// master -start -config=config.json
 func main() {
 	flag.Parse()
-	id := ids.GetIDFromFlag()
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	id := ids.NewClientID(uint8(r.Int31n(255)), uint8(r.Int31n(255)))
 	cfg := config.LoadConfigFromFile(*configFile)
 	master := master_node.NewMaster(cfg, id)
 	master.Run()
@@ -42,5 +46,4 @@ func main() {
 			log.Errorln("BroadcastConfig failed!")
 		}
 	}
-
 }

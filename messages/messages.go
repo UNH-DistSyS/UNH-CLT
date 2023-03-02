@@ -25,6 +25,10 @@ type ReplyToMaster struct {
 	From ids.ID
 }
 
+func (r ReplyToMaster) String() string {
+	return fmt.Sprintf("ReplyToMaster {MsgID=%d, Ok=%t; Node=%v}", r.ID, r.Ok, r.From)
+}
+
 type ConfigMsg struct {
 	ID int
 	// Cfg config.Config // used to overwrite the default config of the node with a config from master_node
@@ -34,6 +38,9 @@ type ConfigMsg struct {
 	Nodes                 map[ids.ID]config.NodeInfo
 	TestingDurationMinute int
 	C                     chan ReplyToMaster
+
+	CsvPrefix      string
+	RowOutputLimit int
 }
 
 func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {

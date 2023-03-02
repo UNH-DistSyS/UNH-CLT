@@ -46,25 +46,31 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 }
 
 func (m *Master) HandleReply(ctx context.Context, msg messages.ReplyToMaster) {
-	log.Infof("Master %v received reply %v", m.id, msg)
 	m.Lock()
-	defer m.Unlock()
-	m.replyChans[msg.ID] <- msg.Ok
+	replyChan := m.replyChans[msg.ID]
+	m.Unlock()
+	log.Infof("Master %v received reply %v", m.id, msg)
+	if replyChan == nil {
+		log.Errorf("Reply chan is nil")
+	}
+	replyChan <- msg.Ok
 }
 
 func (m *Master) broadcastMsg(id int, msg interface{}) bool {
 	log.Debugf("Master %s is sending msg %v", m.id, msg)
-	m.netman.Broadcast(msg, false) // broadcast msg
 	m.Lock()
 	replyCh := make(chan bool, m.cfg.ChanBufferSize)
+	log.Debugf("Master making reply chan for msgId %d", id)
 	m.replyChans[id] = replyCh
 	m.Unlock()
+	m.netman.Broadcast(msg, false) // broadcast msg
 	expected := len(m.cfg.ClusterMembership.Addrs)
 	received := 0
 	for {
 		select {
 		case ok := <-replyCh:
 			received++
+			log.Debugf("Master received %d OKs", received)
 			if !ok {
 				m.Lock()
 				m.replyChans[id] = nil
@@ -111,6 +117,11 @@ func (m *Master) BroadcastConfig() bool {
 
 }
 func (m *Master) Start(testDuration int) bool {
+	if !m.BroadcastConfig() {
+		log.Errorln("BroadcastConfig failed!")
+		return false
+	}
+
 	m.Mutex.Lock()
 	msg := messages.StartLatencyTest{
 		ID:                    m.msgCounter,
@@ -122,6 +133,7 @@ func (m *Master) Start(testDuration int) bool {
 }
 
 func (m *Master) Stop() bool {
+
 	m.Mutex.Lock()
 	msg := messages.StopLatencyTest{
 		ID:    m.msgCounter,
