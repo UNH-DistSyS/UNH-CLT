@@ -42,7 +42,7 @@ func NewNode(cfg *config.Config, identity ids.ID) *Node {
 		idx:                      0,
 		latencyTestingInProgress: false,
 		cfg:                      cfg,
-		measurement:              measurement.NewMeasurement(&identity, cfg.CsvPrefix+"_"+identity.String(), cfg.RowOutputLimit),
+		measurement:              nil,
 	}
 
 	n.netman.Register(messages.ConfigMsg{}, n.HandleConfigMsg)
@@ -99,6 +99,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.StartLatencyTest) {
 	log.Infof("Node %v trying to start", n.id)
 	n.mu.Lock()
+	n.measurement = measurement.NewMeasurement(n.id, n.cfg.CsvPrefix+"_"+n.id.String(), n.cfg.RowOutputLimit)
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
@@ -139,6 +140,7 @@ func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.Start
 func (n *Node) HandleStopLatencyTest(ctx context.Context, msg messages.StopLatencyTest) {
 	log.Infof("Node %v trying to stop", n.id)
 	n.stopTesting()
+	n.measurement.Close()
 	msg.C <- messages.ReplyToMaster{
 		ID: msg.ID,
 		Ok: true,
@@ -163,6 +165,7 @@ func (n *Node) senderTicker() {
 			//stop testing
 			n.mu.Lock()
 			n.latencyTestingInProgress = false
+			n.measurement.Close()
 			// refreshing channel
 			n.stopCh = make(chan bool)
 			n.mu.Unlock()
@@ -173,7 +176,6 @@ func (n *Node) senderTicker() {
 			timestamp := time.Now().UnixMicro()
 			go n.broadcastPing(timestamp, n.idx)
 			n.idx++
-
 		}
 	}
 }

@@ -94,14 +94,7 @@ func (m *Master) Close() {
 
 func (m *Master) BroadcastConfig() bool {
 	m.Mutex.Lock()
-	msg := messages.ConfigMsg{
-		ID:                    m.msgCounter,
-		PayLoadSize:           m.cfg.PayLoadSize,
-		TestingRateS:          m.cfg.TestingRateS,
-		SelfLoop:              m.cfg.SelfLoop,
-		Nodes:                 m.cfg.ClusterMembership.Addrs,
-		TestingDurationMinute: m.cfg.TestingDurationMinute,
-	}
+	msg := messages.NewConfigMsg(m.cfg)
 	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
