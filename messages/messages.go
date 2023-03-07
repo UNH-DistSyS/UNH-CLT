@@ -43,17 +43,20 @@ type ConfigMsg struct {
 	RowOutputLimit int
 }
 
-func (c *ConfigMsg) MakeConfigMsg(cfg *config.Config) bool {
+func NewConfigMsg(cfg *config.Config) ConfigMsg {
+	c := new(ConfigMsg)
 	c.PayLoadSize = cfg.PayLoadSize
 	c.TestingRateS = cfg.TestingRateS
 	c.SelfLoop = cfg.SelfLoop
 	c.Nodes = cfg.ClusterMembership.Addrs
 	c.TestingDurationMinute = cfg.TestingDurationMinute
-	return true
+	c.RowOutputLimit = cfg.RowOutputLimit
+	c.CsvPrefix = cfg.CsvPrefix
+	return *c
 }
 
 func (c ConfigMsg) String() string {
-	return fmt.Sprintf("ConfigMsg {PayloadSize=%d, TestingRate=%dper second, selfLoop=%t, Nodes=%v}", c.PayLoadSize, c.TestingRateS, c.SelfLoop, c.Nodes)
+	return fmt.Sprintf("ConfigMsg {PayloadSize=%d, TestingRate=%dper second, selfLoop=%t, Nodes=%v, RowOutputLimit=%d}", c.PayLoadSize, c.TestingRateS, c.SelfLoop, c.Nodes, c.RowOutputLimit)
 }
 
 type StartLatencyTest struct {
