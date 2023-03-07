@@ -1,7 +1,12 @@
 package master_node
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,6 +16,9 @@ import (
 	"github.com/UNH-DistSyS/UNH-CLT/messages"
 	"github.com/UNH-DistSyS/UNH-CLT/netwrk"
 	"github.com/UNH-DistSyS/UNH-CLT/operation_dispatcher"
+	scp "github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
+	"golang.org/x/crypto/ssh"
 )
 
 type Master struct {
@@ -33,6 +41,7 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 	}
 	log.Infof("Master is %v", m)
 	m.netman.Register(messages.ReplyToMaster{}, m.HandleReply)
+
 	return &m
 }
 
@@ -114,17 +123,140 @@ func (m *Master) Start(testDuration int) bool {
 	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
-
 }
 
 func (m *Master) Stop() bool {
 
 	m.Mutex.Lock()
 	msg := messages.StopLatencyTest{
-		ID: m.msgCounter,
+		ID:    m.msgCounter,
+		Close: false,
 	}
 	m.msgCounter++
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
+}
 
+func (m *Master) CloseNodes() bool {
+	m.Mutex.Lock()
+	msg := messages.StopLatencyTest{
+		ID:    m.msgCounter,
+		Close: true,
+	}
+	m.msgCounter++
+	m.Mutex.Unlock()
+	return m.broadcastMsg(msg.ID, msg)
+}
+func getIdxFromResponse(response string, id string) (int, int) {
+	file_names := strings.Fields(response)
+	idxs := make([]int, 0)
+	for _, file_name := range file_names {
+		sub := strings.Replace(file_name, ".csv", "", -1)
+		subb := strings.Replace(sub, "testing_"+id+"_", "", -1)
+		idx, err := strconv.Atoi(subb)
+		if err != nil {
+			return 0, 0
+		}
+		idxs = append(idxs, idx)
+	}
+	sort.Ints(idxs)
+
+	if len(idxs) > 0 {
+		return idxs[0], idxs[len(idxs)-1]
+	}
+
+	return 0, 0
+}
+
+func (m *Master) getAddress(id ids.ID) string {
+	return strings.Split(strings.Replace(m.cfg.ClusterMembership.Addrs[id].PrivateAddress, "tcp://", "", -1), ":")[0]
+}
+
+func (m *Master) doSSH(id ids.ID, cmd string) string {
+	// var hostKey ssh.PublicKey
+	key, err := os.ReadFile(m.cfg.ClusterMembership.Addrs[id].RSA_path)
+	if err != nil {
+		log.Errorf("unable to read private key: %v", err)
+		return ""
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		log.Errorf("unable to parse private key: %v %v", err)
+		return ""
+	}
+	config := &ssh.ClientConfig{
+		User: m.cfg.ClusterMembership.Addrs[id].Usr_name,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	client, err := ssh.Dial("tcp", m.getAddress(id)+":22", config)
+	if err != nil {
+		log.Errorf("unable to connect: %v", err)
+		return ""
+	}
+	defer client.Close()
+	session, _ := client.NewSession()
+	defer session.Close()
+
+	var b bytes.Buffer
+	session.Stdout = &b
+	if err := session.Run(cmd); err != nil {
+		log.Errorln("Failed to run: " + err.Error() + cmd)
+	}
+	return b.String()
+}
+
+func (m *Master) GetFileIdxes(id ids.ID) (int, int) {
+	command := "ls " + m.cfg.ClusterMembership.Addrs[id].CSV_prefix
+	start, end := getIdxFromResponse(m.doSSH(id, command), id.String())
+	return start, end
+}
+
+func (m *Master) CopyFileFromRemoteToLocal(id ids.ID, start int, end int, path string) {
+	// estabilsh connections
+	for idx := start; idx < end; idx++ {
+		clientConfig, _ := auth.PrivateKey(m.cfg.ClusterMembership.Addrs[id].Usr_name, m.cfg.ClusterMembership.Addrs[id].RSA_path, ssh.InsecureIgnoreHostKey())
+		client := scp.NewClient(m.getAddress(id)+":22", &clientConfig)
+		err := client.Connect()
+		if err != nil {
+			log.Errorln("Couldn't establish scp connection to the remote server ", err)
+		}
+		os.MkdirAll(path, 0755)
+		filename := "testing_" + id.String() + "_" + strconv.Itoa(idx) + ".csv"
+		file, err := os.Create(path + filename)
+		if err != nil {
+			log.Errorln(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(m.cfg.CommunicationTimeoutMs)*time.Millisecond*100)
+		defer cancel()
+		err = client.CopyFromRemote(ctx, file, m.cfg.ClusterMembership.Addrs[id].CSV_prefix+filename)
+		if err != nil {
+			log.Errorln("error copying file: ", err)
+		}
+		client.Close()
+		file.Close()
+	}
+}
+
+func (m *Master) DeleteFile(id ids.ID, start int, end int) {
+	for idx := start; idx < end; idx++ {
+		command := "rm " + m.cfg.ClusterMembership.Addrs[id].CSV_prefix + "testing_" + id.String() + "_" + strconv.Itoa(idx) + ".csv"
+		m.doSSH(id, command)
+	}
+}
+
+func (m *Master) Download(duration int) {
+	ticker := time.NewTicker(time.Duration(duration) * time.Minute)
+	for {
+		<-ticker.C
+		for _, id := range m.cfg.ClusterMembership.IDs {
+			start, end := m.GetFileIdxes(id)
+			m.CopyFileFromRemoteToLocal(id, start, end, m.cfg.HistoryDir)
+			m.DeleteFile(id, start, end)
+		}
+	}
 }

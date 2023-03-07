@@ -48,7 +48,7 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 	cid := ids.NewClientID(1, 1)
 	cdispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*cid, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
 	master = netwrk.NewMasterCommunicator(cfg, *cid, cdispatcher)
-	master.Run()
+	go master.Run()
 	cfgMsg := messages.ConfigMsg{}
 	cfgMsg.MakeConfigMsg(cfg)
 	master.Broadcast(cfgMsg, false)

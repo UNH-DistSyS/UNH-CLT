@@ -16,6 +16,7 @@ const (
 	DEFAULT_PAYLOAD           = 1024
 	SELF_LOOP                 = true
 	TESTING_DURATION_MINUTE   = 1
+	DEFAULT_HISTORY_DIR       = "history"
 )
 
 /**
@@ -40,6 +41,7 @@ type Config struct {
 	//Data output variables
 	CsvPrefix      string `json:"csv_prefix"`       //configurable prefix for output csv data files
 	RowOutputLimit int    `json:"row_output_limit"` //configurable paramater for limit on number of output rows in csv files
+	HistoryDir     string `json:"history_dir"`      //configurable history file dir
 }
 
 func MakeDefaultConfig() *Config {
@@ -56,7 +58,7 @@ func MakeDefaultConfig() *Config {
 	config.RoundTimeoutMs = 400
 	config.CommunicationTimeoutMs = 100
 	config.ClusterMembership.RefreshIdsFromAddresses()
-
+	config.HistoryDir = DEFAULT_HISTORY_DIR
 	config.CsvPrefix = "test"
 	config.RowOutputLimit = 2000000
 	return config
