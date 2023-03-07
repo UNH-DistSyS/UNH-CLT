@@ -22,7 +22,7 @@ resource "aws_instance" "app_server" {
 
   root_block_device {
     delete_on_termination = true
-    volume_size           = 10
+    volume_size           = 15
   }
 
   tags = {
