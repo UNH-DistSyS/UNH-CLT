@@ -1,0 +1,40 @@
+digraph Topology {
+    label = "Topology"
+    subgraph cluster_region0 {
+        label = "Region 0";
+        subgraph cluster_az0 {
+            label = "AZ 0";
+            subgraph cluster_network0 {
+                label = "Network 0"
+                node1;
+                node2;
+                node3;
+            };
+
+            subgraph cluster_network1 {
+                label = "Network 1"
+                node4;
+            }
+        }
+        
+        subgraph cluster_az1 {
+            label = "AZ 1"
+            node5;
+        }
+
+        subgraph cluster_az2 {
+            label = "AZ 2"
+            node6;
+        }
+    }
+
+    subgraph cluster_region1 {
+        label = "Region 1"
+        node7;
+    }
+
+    subgraph cluster_region2 {
+        label = "Region 2"
+        node8;
+    }
+}
