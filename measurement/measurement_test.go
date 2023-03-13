@@ -1,6 +1,7 @@
 package measurement
 
 import (
+	"compress/gzip"
 	"encoding/csv"
 	"math/rand"
 	"os"
@@ -20,7 +21,7 @@ var DEBUG = true
 var testPrefix = "test"
 
 func CreateMeasurement(listSizeTestParam int) *Measurement {
-	return NewMeasurement(ids.GetIDFromFlag(), testPrefix, listSizeTestParam)
+	return NewMeasurement(ids.GetIDFromFlag(), testPrefix, listSizeTestParam, false)
 }
 
 // Produces random amount of "time" between
@@ -125,4 +126,40 @@ func TestFlushCSV(t *testing.T) {
 	assert.Equal(t, listSizeTestParam, len(rows), "error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
 
 	m.Close()
+}
+
+func TestFlushGZip(t *testing.T) {
+	listSizeTestParam := 100
+	fakeNodeId := ids.GetIDFromFlag()
+	m := CreateMeasurement(listSizeTestParam)
+	m.compress = true
+
+	var all_measures []byte
+
+	for i := 0; i < 99; i++ {
+		DoMeasurement(m, fakeNodeId)
+		all_measures = append(all_measures, []byte(m.data[i].String())...)
+	}
+	m.Close()
+
+	time.Sleep(time.Second * 1)
+	assert.Equal(t, 1, m.fileCounter, "Expected file counter size %d but got %d\n", 1, m.fileCounter)
+
+	f, err := os.Open(DIRECTORY + "/" + testPrefix + "_0.csv.gz")
+	assert.Equal(t, nil, err, "error: could not find csv file with appropriate name in current directory\n")
+
+	gz, err := gzip.NewReader(f)
+	assert.Equal(t, nil, err, "error: unable to create gzip reader for file %v\n", f)
+
+	var content []byte
+	rows, err := gz.Read(content)
+	assert.Equal(t, nil, err, "error: empty file\n")
+
+	log.Debugf("%v rows in file", rows)
+	for i := 0; i < rows; i++ {
+		log.Debugf(string(content[i]))
+	}
+
+	//account for header write in this test
+	assert.Equal(t, listSizeTestParam, rows-1, "error: len of csv file is %d but should be %d\n", rows, listSizeTestParam)
 }

@@ -4,9 +4,13 @@ package measurement
 //object to update/record data
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/csv"
+	"io"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/UNH-DistSyS/UNH-CLT/ids"
@@ -23,6 +27,7 @@ type Measurement struct {
 	thisNodeId *ids.ID
 	prefix     string
 	data       []measurementRow
+	compress   bool
 
 	//internal variables for tracking/updating
 	mu          sync.Mutex
@@ -40,7 +45,8 @@ type measurementRow struct {
 
 /* When nodes stop, they must call this function to flush remaining data to file */
 func (m *Measurement) Close() {
-	flush(m.data, m.prefix, m.fileCounter)
+	flush(m.data, m.prefix, m.fileCounter, m.compress)
+	m.fileCounter++
 }
 
 func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
@@ -60,7 +66,7 @@ func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, s
 
 	//flush list to csv if full
 	if len(m.data) == m.listLength {
-		go flush(m.data, m.prefix, m.fileCounter)
+		go flush(m.data, m.prefix, m.fileCounter, m.compress)
 
 		//reset internal list and update variables
 		m.fileCounter++
@@ -72,41 +78,85 @@ func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, s
 * Measurement should flush data to a file after
 * a certain threshold is reached.
  */
-func flush(data []measurementRow, prefix string, counter int) {
+func flush(data []measurementRow, prefix string, counter int, compress bool) {
 	log.Debugf("Flushing output")
 	err := os.MkdirAll(DIRECTORY, os.ModePerm) //assert directory exists or creates one
 	if err != nil {
-		//log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)
+		log.Fatalf("Error creating/checking for directory %v\n", DIRECTORY)
 	}
-	fileName := DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv"
+	var fileName string
+	if compress {
+		fileName = DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv.gz"
+	} else {
+		fileName = DIRECTORY + "/" + prefix + "_" + strconv.Itoa(counter) + ".csv"
+	}
 	file, err := os.Create(fileName)
-	defer file.Close()
 	if err != nil {
 		log.Fatalf("Failed to create file %s", fileName)
 	}
+	defer file.Close()
 
-	w := csv.NewWriter(file)
+	if compress {
+		gz := gzip.NewWriter(file)
+		WriteGZip(gz, data)
+	} else {
+		w := csv.NewWriter(file)
+		WriteCSV(w, data)
+	}
+}
 
-	//write header
-	w.Write([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"})
+func WriteGZip(gzWriter io.Writer, data []measurementRow) {
+	var content []byte = make([]byte, 0)
+	header := strings.Join([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"}, ",")
+	log.Debugf("%v", header)
 
 	for _, item := range data {
-		w.Write([]string{
+		row := []byte(item.String())
+		content = append(content, row...)
+	}
+	_, err := io.Copy(gzWriter, bytes.NewReader(content))
+	//log.Debugf("%v\n", content)
+	//log.Debugf("%v\n", string(content))
+	if err != nil {
+		log.Debugf("Error outputting to file")
+	}
+}
+
+func WriteCSV(csvWriter *csv.Writer, data []measurementRow) {
+	csvWriter.Write([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"})
+	for _, item := range data {
+		row := []string{
 			item.thisNodeId.String(),
 			strconv.FormatUint(item.round, 10),
 			item.remoteNodeId.String(),
 			strconv.FormatInt(item.start, 10),
 			strconv.FormatInt(item.end, 10),
-		})
+		}
+		err := csvWriter.Write(row)
+		if err != nil {
+			log.Debugf("Error outputting to file")
+		}
 	}
-	w.Flush()
+	csvWriter.Flush()
 }
 
-func NewMeasurement(nodeId *ids.ID, csvPrefix string, listSize int) *Measurement {
+func (mr *measurementRow) String() string {
+	return strings.Join([]string{
+		mr.thisNodeId.String(),
+		strconv.FormatUint(mr.round, 10),
+		mr.remoteNodeId.String(),
+		strconv.FormatInt(mr.start, 10),
+		strconv.FormatInt(mr.end, 10),
+		"\n",
+	}, ",")
+}
+
+func NewMeasurement(nodeId *ids.ID, csvPrefix string, listSize int, compression bool) *Measurement {
 	m := &Measurement{
 		thisNodeId:  nodeId,
 		prefix:      csvPrefix,
 		data:        make([]measurementRow, 0, listSize),
+		compress:    compression,
 		listLength:  listSize,
 		fileCounter: 0,
 	}
