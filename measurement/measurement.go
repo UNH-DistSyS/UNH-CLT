@@ -50,6 +50,17 @@ func (m *Measurement) Close() {
 }
 
 func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, startTime int64, endTime int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	//flush list to csv if full
+	if len(m.data) == m.listLength {
+		go flush(m.data, m.prefix, m.fileCounter, m.compress)
+
+		//reset internal list and update variables
+		m.fileCounter++
+		m.data = make([]measurementRow, 0, m.listLength)
+	}
 	modifiedStart := startTime - START_EPOCH
 	modifiedEnd := endTime - START_EPOCH
 
@@ -60,18 +71,7 @@ func (m *Measurement) AddMeasurement(roundNumber uint64, remoteNodeID *ids.ID, s
 		start:        modifiedStart,
 		end:          modifiedEnd,
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.data = append(m.data, row)
-
-	//flush list to csv if full
-	if len(m.data) == m.listLength {
-		go flush(m.data, m.prefix, m.fileCounter, m.compress)
-
-		//reset internal list and update variables
-		m.fileCounter++
-		m.data = make([]measurementRow, 0, m.listLength)
-	}
 }
 
 /*
@@ -99,6 +99,7 @@ func flush(data []measurementRow, prefix string, counter int, compress bool) {
 	if compress {
 		gz := gzip.NewWriter(file)
 		WriteGZip(gz, data)
+		gz.Close()
 	} else {
 		w := csv.NewWriter(file)
 		WriteCSV(w, data)
@@ -107,16 +108,15 @@ func flush(data []measurementRow, prefix string, counter int, compress bool) {
 
 func WriteGZip(gzWriter io.Writer, data []measurementRow) {
 	var content []byte = make([]byte, 0)
-	header := strings.Join([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"}, ",")
+	header := []byte(strings.Join([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"}, ",") + "\n")
+	content = append(content, header...)
 	log.Debugf("%v", header)
 
 	for _, item := range data {
-		row := []byte(item.String())
+		row := []byte(item.String() + "\n")
 		content = append(content, row...)
 	}
 	_, err := io.Copy(gzWriter, bytes.NewReader(content))
-	//log.Debugf("%v\n", content)
-	//log.Debugf("%v\n", string(content))
 	if err != nil {
 		log.Debugf("Error outputting to file")
 	}
@@ -147,7 +147,6 @@ func (mr *measurementRow) String() string {
 		mr.remoteNodeId.String(),
 		strconv.FormatInt(mr.start, 10),
 		strconv.FormatInt(mr.end, 10),
-		"\n",
 	}, ",")
 }
 
