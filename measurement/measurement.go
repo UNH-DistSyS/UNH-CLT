@@ -107,16 +107,15 @@ func flush(data []measurementRow, prefix string, counter int, compress bool) {
 }
 
 func WriteGZip(gzWriter io.Writer, data []measurementRow) {
-	var content []byte = make([]byte, 0)
+	var buf bytes.Buffer
 	header := []byte(strings.Join([]string{"thisNodeId", "roundNumber", "remoteNodeId", "startTime", "endTime"}, ",") + "\n")
-	content = append(content, header...)
-	log.Debugf("%v", header)
+	buf.Write(header)
 
 	for _, item := range data {
 		row := []byte(item.String() + "\n")
-		content = append(content, row...)
+		buf.Write(row)
 	}
-	_, err := io.Copy(gzWriter, bytes.NewReader(content))
+	_, err := io.Copy(gzWriter, &buf)
 	if err != nil {
 		log.Debugf("Error outputting to file")
 	}

@@ -162,7 +162,6 @@ func TestFlushGZip(t *testing.T) {
 	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
 
 	rows := strings.Split(buf.String(), "\n")
-	log.Debugf("length all: %v, length uncompressed: %v", len(all_measures), len(rows))
 
 	//compare i:i+1 to ignore header from compressed file
 	//splitting on "\n" will also add an empty last element, which we'll ignore
