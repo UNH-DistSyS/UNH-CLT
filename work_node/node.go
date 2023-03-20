@@ -97,7 +97,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.StartLatencyTest) {
 	log.Infof("Node %v trying to start", n.id)
 	n.mu.Lock()
-	n.measurement = measurement.NewMeasurement(n.id, n.cfg.CsvPrefix+"_"+n.id.String(), n.cfg.RowOutputLimit)
+	n.measurement = measurement.NewMeasurement(n.id, n.cfg.CsvPrefix+"_"+n.id.String(), n.cfg.RowOutputLimit, n.cfg.Compress)
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")

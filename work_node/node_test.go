@@ -49,8 +49,8 @@ func setupNodeTests(t *testing.T, nodeIds []ids.ID) {
 	cdispatcher := operation_dispatcher.NewConcurrentOperationDispatcher(*cid, cfg.ChanBufferSize, cfg.OpDispatchConcurrency)
 	master = netwrk.NewMasterCommunicator(cfg, *cid, cdispatcher)
 	go master.Run()
-	cfgMsg := messages.ConfigMsg{}
-	cfgMsg.MakeConfigMsg(cfg)
+	// cfgMsg := messages.ConfigMsg{}
+	cfgMsg := messages.NewConfigMsg(cfg)
 	master.Broadcast(cfgMsg, false)
 	time.Sleep(time.Second)
 	for i := 0; i < 3; i++ {

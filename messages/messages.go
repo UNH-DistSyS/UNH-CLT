@@ -41,6 +41,7 @@ type ConfigMsg struct {
 
 	CsvPrefix      string
 	RowOutputLimit int
+	Compress       bool
 }
 
 func NewConfigMsg(cfg *config.Config) ConfigMsg {
@@ -52,6 +53,7 @@ func NewConfigMsg(cfg *config.Config) ConfigMsg {
 	c.TestingDurationMinute = cfg.TestingDurationMinute
 	c.RowOutputLimit = cfg.RowOutputLimit
 	c.CsvPrefix = cfg.CsvPrefix
+	c.Compress = cfg.Compress
 	return *c
 }
 
