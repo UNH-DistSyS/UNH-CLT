@@ -84,6 +84,9 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.SelfLoop = msg.SelfLoop
 	n.cfg.ClusterMembership.Addrs = msg.Nodes
 	n.cfg.TestingDurationMinute = msg.TestingDurationMinute
+	n.cfg.Compress = msg.Compress
+	n.cfg.CsvPrefix = msg.CsvPrefix
+	n.cfg.RowOutputLimit = msg.RowOutputLimit
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
