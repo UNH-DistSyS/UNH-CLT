@@ -62,7 +62,6 @@ func (n *Node) Close() {
 }
 func (n *Node) stopTesting() {
 	n.mu.Lock()
-	n.measurement.Close()
 	defer n.mu.Unlock()
 	n.stopCh <- true
 }
