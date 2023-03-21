@@ -17,7 +17,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images*22.04*arm64*"]
+    values = ["ubuntu/images*22.04*"]
   }
 
   owners = ["099720109477"] # Canonical
@@ -79,20 +79,23 @@ resource "aws_security_group" "allow_ssh" {
     ipv6_cidr_blocks = [
       "::/0"
     ]
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
   }
 
   // Terraform removes the default rule
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    ipv6_cidr_blocks = [
+      "::/0"
+    ]
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-    tags = {
+  tags = {
     Project = "UNHCLT"
   }
 }

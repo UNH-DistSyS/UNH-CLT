@@ -30,7 +30,7 @@ resource "aws_route_table_association" "management_route_table_association" {
 # }
 
 module "server" {
-  count = var.subnet_index == 0 && var.az_index == 0 && var.region_index == 0 ? 3 : var.az_index == 1 && var.region_index == 0 ? 2 : 1
+  count = var.subnet_index == 0 && var.az_index == 0 && var.region_index == 0 ? 3 : var.az_index == 1 && var.region_index == 0 ? 1 : 1
 
   availability_zone_name = var.az_name
   base_image_id          = var.base_image_id
