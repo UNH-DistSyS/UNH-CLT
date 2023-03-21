@@ -84,7 +84,7 @@ func (m *Master) broadcastMsg(id int, msg interface{}) bool {
 				return true
 			}
 		case <-time.After(time.Millisecond * time.Duration(m.cfg.CommunicationTimeoutMs)):
-			log.Debugf("message %v timeout waiting for reply", id)
+			log.Debugf("message %v timeout waiting for reply (timout=%d ms)", id, m.cfg.CommunicationTimeoutMs)
 			m.Lock()
 			m.replyChans[id] = nil
 			m.Unlock()
