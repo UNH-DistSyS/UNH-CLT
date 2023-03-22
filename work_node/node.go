@@ -86,6 +86,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.Compress = msg.Compress
 	n.cfg.CsvPrefix = msg.CsvPrefix
 	n.cfg.RowOutputLimit = msg.RowOutputLimit
+	n.cfg.CommunicationTimeoutMs = msg.CommunicationTimeoutMs
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
 	msg.C <- messages.ReplyToMaster{
@@ -221,7 +222,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 			}
 		case <-ctx.Done():
 			// we hit timeout waiting for replies.
-			log.Errorf("Node %v timeout receiving pong responses for round=%d: %v", n.id, 0, ctx.Err())
+			log.Errorf("Node %v timeout receiving pong responses for round=%d: %v", n.id, roundnumber, ctx.Err())
 			return false
 		}
 	}
