@@ -42,3 +42,8 @@ variable "virtual_network_name" {
   type = string
   description = "The name of the virtual network"
 }
+
+variable "sg_id" {
+  type = string
+  description = "The id of the security group to use"
+} 
