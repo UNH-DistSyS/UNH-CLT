@@ -6,8 +6,8 @@ data "aws_vpc" "vpc" {
 resource "aws_subnet" "subnet" {
   vpc_id                                         = var.vpc_id
   availability_zone                              = var.az_name
-  cidr_block                                     = cidrsubnet(cidrsubnet(cidrsubnet(data.aws_vpc.vpc.cidr_block, 4, var.region_index), 4, var.az_index), 4, var.subnet_index)
-  ipv6_cidr_block                                = cidrsubnet(cidrsubnet(cidrsubnet(data.aws_vpc.vpc.ipv6_cidr_block, 4, var.region_index), 2, var.az_index), 2, var.subnet_index)
+  cidr_block                                     = cidrsubnet(cidrsubnet(data.aws_vpc.vpc.cidr_block, 4, var.az_index), 4, var.subnet_index)
+  ipv6_cidr_block                                = cidrsubnet(cidrsubnet(data.aws_vpc.vpc.ipv6_cidr_block, 4, var.az_index), 4, var.subnet_index)
   map_public_ip_on_launch                        = true
   assign_ipv6_address_on_creation                = true
   enable_resource_name_dns_a_record_on_launch    = true

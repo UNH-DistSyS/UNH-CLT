@@ -6,7 +6,7 @@ variable "ssh_key_name" {
 variable "instance_type" {
   type        = string
   description = "What type of instance to use"
-  default     = "t4g.nano"
+  default     = "t3.nano"
 }
 
 variable "region_0_name" {
