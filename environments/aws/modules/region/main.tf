@@ -24,13 +24,21 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block                       = "10.0.0.0/16"
+  cidr_block                       = cidrsubnet("10.0.0.0/16", 4, var.region_index)
   assign_generated_ipv6_cidr_block = true
 
   tags = {
     Name    = "cloud_latency_tester_vpc"
     Project = "UNHCLT"
   }
+}
+
+output "vpc" {
+  value = aws_vpc.vpc
+}
+
+output "vpc_id" {
+  value = aws_vpc.vpc.id
 }
 
 resource "aws_ec2_transit_gateway" "tgw" {
@@ -52,20 +60,26 @@ resource "aws_internet_gateway" "gw" {
 resource "aws_route_table" "route_table" {
   vpc_id = aws_vpc.vpc.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
-
-  route {
-    ipv6_cidr_block = "::/0"
-    gateway_id      = aws_internet_gateway.gw.id
-  }
-
   tags = {
     Name    = "Default Route Table"
     Project = "UNHCLT"
   }
+}
+
+output "route_table_id" {
+  value = aws_route_table.route_table.id
+}
+
+resource "aws_route" "default_v4" {
+  route_table_id = aws_route_table.route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id = aws_internet_gateway.gw.id
+}
+
+resource "aws_route" "default_v6" {
+  route_table_id = aws_route_table.route_table.id
+  destination_ipv6_cidr_block = "::/0"
+  gateway_id = aws_internet_gateway.gw.id
 }
 
 resource "aws_security_group" "allow_ssh" {
