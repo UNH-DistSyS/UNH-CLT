@@ -19,7 +19,7 @@ It is our assumption that, from a networking perspective, the following is rough
 
 ## AWS
 
-* The default instance size is a t4g.nano, but we used m5.large for testing
+* The default instance size is a t3.nano, but we used m5.large for testing
   * Overwrite this with "TF_VAR_instance_type=YOUR_INSTANCE_SIZE_HERE"
 * Set the TF_VAR_region_#_name variables to change which regions you deploy to. 
 
@@ -32,7 +32,29 @@ It is our assumption that, from a networking perspective, the following is rough
 
 ### Topology 
 
-AWS requires a separate VPC for each region, and each AZ has at least one network. AZs with a single node have only one network. 
+AWS requires a separate VPC for each region, and each AZ has at least one network. AZs with a single node have only one network.
+
+## Microsoft Azure
+
+* The default instance size is Standard_B1ls
+  * Overwrite this with "TF_VAR_instance_type=YOUR_INSTANCE_SIZE_HERE"
+* Set the TF_VAR_region_#_name variables to change which regions you deploy to. 
+
+### Deployment
+
+Due to the way the Terraform uses the Azure API, some manual steps are required.
+
+1. Sign into your azure account on your local system
+2. cd to \<project root\>/environments/azure
+3. comment out the last block "azurerm_virtual_network_peering" "peering"
+  * Otherwise this causes issues with Terraform's dependency solver
+4. Run "make apply"
+5. un-comment the "azurerm_virtual_network_peering" "peering" block
+6. Run "make apply" again
+
+### Topology 
+
+Everything runs under a single Resource Group, with each AZ having it's own virtual private network. An AZ will have one or more subnets.
 
 ## Google Cloud Platform (GCP)
 
