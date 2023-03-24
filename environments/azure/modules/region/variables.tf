@@ -17,3 +17,13 @@ variable "ssh_key_path" {
   type = string
   description = "The path to the PUBLIC ssh key you want to use to connect to the server"
 }
+
+variable "resource_group_name" {
+  type        = string
+  description = "The name of this resource group"
+}
+
+variable "resource_group_location" {
+  type = string
+  description = "The location to store put this server"
+}

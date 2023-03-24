@@ -1,12 +1,12 @@
 variable "ssh_key_path" {
-  type = string
+  type        = string
   description = "The path to the PUBLIC ssh key you want to use to connect to the server"
 }
 
 variable "instance_type" {
   type        = string
   description = "What type of instance to use"
-  default = "Standard_B1ls"
+  default     = "Standard_B1ls"
 }
 
 variable "region_0_name" {
