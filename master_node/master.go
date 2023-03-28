@@ -26,6 +26,7 @@ type Master struct {
 	cfg        *config.Config
 	id         ids.ID
 	msgCounter int
+	filetype   string
 	replyChans map[int]chan bool
 	sync.Mutex
 }
@@ -37,12 +38,17 @@ func NewMaster(cfg *config.Config, identity *ids.ID) *Master {
 		netman:     netman,
 		cfg:        cfg,
 		id:         *identity,
+		filetype:   ".csv",
 		replyChans: make(map[int]chan bool),
 	}
 	log.Infof("Master is %v", m)
 	m.netman.Register(messages.ReplyToMaster{}, m.HandleReply)
 
 	return &m
+}
+
+func (m *Master) SetFileType(filetype string) {
+	m.filetype = filetype
 }
 
 func (m *Master) HandleReply(ctx context.Context, msg messages.ReplyToMaster) {
@@ -147,11 +153,11 @@ func (m *Master) CloseNodes() bool {
 	m.Mutex.Unlock()
 	return m.broadcastMsg(msg.ID, msg)
 }
-func getIdxFromResponse(response string, id string) (int, int) {
+func (m *Master) getIdxFromResponse(response string, id string) (int, int) {
 	file_names := strings.Fields(response)
 	idxs := make([]int, 0)
 	for _, file_name := range file_names {
-		sub := strings.Replace(file_name, ".csv", "", -1)
+		sub := strings.Replace(file_name, m.filetype, "", -1)
 		subb := strings.Replace(sub, "testing_"+id+"_", "", -1)
 		idx, err := strconv.Atoi(subb)
 		if err != nil {
@@ -212,7 +218,7 @@ func (m *Master) doSSH(id ids.ID, cmd string) string {
 
 func (m *Master) GetFileIdxes(id ids.ID) (int, int) {
 	command := "ls " + m.cfg.ClusterMembership.Addrs[id].CSV_prefix
-	start, end := getIdxFromResponse(m.doSSH(id, command), id.String())
+	start, end := m.getIdxFromResponse(m.doSSH(id, command), id.String())
 	return start, end
 }
 
@@ -226,7 +232,7 @@ func (m *Master) CopyFileFromRemoteToLocal(id ids.ID, start int, end int, path s
 			log.Errorln("Couldn't establish scp connection to the remote server ", err)
 		}
 		os.MkdirAll(path, 0755)
-		filename := "testing_" + id.String() + "_" + strconv.Itoa(idx) + ".csv"
+		filename := "testing_" + id.String() + "_" + strconv.Itoa(idx) + m.filetype
 		file, err := os.Create(path + filename)
 		if err != nil {
 			log.Errorln(err)
@@ -244,7 +250,7 @@ func (m *Master) CopyFileFromRemoteToLocal(id ids.ID, start int, end int, path s
 
 func (m *Master) DeleteFile(id ids.ID, start int, end int) {
 	for idx := start; idx < end; idx++ {
-		command := "rm " + m.cfg.ClusterMembership.Addrs[id].CSV_prefix + "testing_" + id.String() + "_" + strconv.Itoa(idx) + ".csv"
+		command := "rm " + m.cfg.ClusterMembership.Addrs[id].CSV_prefix + "testing_" + id.String() + "_" + strconv.Itoa(idx) + m.filetype
 		m.doSSH(id, command)
 	}
 }
