@@ -24,8 +24,8 @@ start_nodes() {
   done < "${1}"
 }
 
-#      1           2       3
-# servers_file username key.pem remote_dir
+#      1           2       3        4          5
+# servers_file username key.pem remote_dir config_file
 stop_nodes() {
   while read server;
   do
@@ -33,7 +33,7 @@ stop_nodes() {
     serverArray=($cleaned_string)
     if [[ "${serverArray[0]}" == "0.0" ]]; then
       echo "Stopping nodes"
-      ssh -n -i ${3} $2@${serverArray[1]} "cd ${4}; ./master -close -config=config.json"
+      ssh -n -i ${3} $2@${serverArray[1]} "cd ${4}; ./master -close -config=${5}"
     fi
   done < "${1}"
 }
@@ -147,8 +147,8 @@ start)
   start_nodes $4 $2 $3 $5
   ;;
 stop)
-   # deploy.sh start ubuntu key.pem servers.txt /home/ubuntu/clt
-  stop_nodes $4 $2 $3 $5
+   # deploy.sh stop ubuntu key.pem servers.txt /home/ubuntu/clt config_aws.json
+  stop_nodes $4 $2 $3 $5 $6
   ;;
 download_dir)
   #     0           1         2      3        4              5                  6

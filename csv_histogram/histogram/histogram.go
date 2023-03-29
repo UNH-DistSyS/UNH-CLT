@@ -114,7 +114,7 @@ func (h *Histogram) ApproxPercentile(p float64) int {
 		if c >= percentileCount {
 			return buckets[i] * h.histogramBucketWidth
 		}
-		c += h.hist[i]
+		c += h.hist[buckets[i]]
 	}
 
 	return buckets[len(buckets)-1] * h.histogramBucketWidth
@@ -145,7 +145,7 @@ func (h *Histogram) WriteToCSV(filename string) error {
 	defer writer.Flush()
 
 	// write the headers
-	headers := []string{"key", "value"}
+	headers := []string{"bucket number (bucket width=" + strconv.Itoa(h.histogramBucketWidth) + " microseconds)", "count"}
 	err = writer.Write(headers)
 	if err != nil {
 		return err

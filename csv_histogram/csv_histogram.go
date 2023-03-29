@@ -18,7 +18,7 @@ import (
 var csvdir = flag.String("csvdir", "", "location of csv files")
 var outdir = flag.String("outdir", "", "location of output csv files")
 var experimentsJson = flag.String("experiments_json", "", "location of JSON file with experimental description")
-var bucketWidth = flag.Int("bucket", 50, "microseconds in each histogram bucket")
+var bucketWidth = flag.Int("bucket", 5, "microseconds in each histogram bucket")
 var crateHistogramImages = flag.Bool("images", false, "whether to generate histogram images")
 
 type Bucket struct {
@@ -46,18 +46,29 @@ func newQuorumDescription(startNode string, size int, h *histogram.Histogram) *Q
 	}
 }
 
-func (qd *QuorumDescription) AddQuorumLatency(latency, round int) {
-	if _, exists := qd.roundLatencies[round]; exists {
-		qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
-
-		if len(qd.roundLatencies[round]) == len(qd.EndNodes) {
-			sort.Ints(qd.roundLatencies[round])
-			qd.Histogram.Add(qd.roundLatencies[round][qd.Size-1])
-			delete(qd.roundLatencies, round)
+func (qd *QuorumDescription) isValidEndNode(id string) bool {
+	for _, endNodeId := range qd.EndNodes {
+		if endNodeId == id {
+			return true
 		}
-	} else {
-		qd.roundLatencies[round] = make([]int, 0)
-		qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
+	}
+	return false
+}
+
+func (qd *QuorumDescription) AddQuorumLatency(latency, round int, nodeId string) {
+	if qd.isValidEndNode(nodeId) {
+		if _, exists := qd.roundLatencies[round]; exists {
+			qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
+
+			if len(qd.roundLatencies[round]) == len(qd.EndNodes) {
+				sort.Ints(qd.roundLatencies[round])
+				qd.Histogram.Add(qd.roundLatencies[round][qd.Size-1])
+				delete(qd.roundLatencies, round)
+			}
+		} else {
+			qd.roundLatencies[round] = make([]int, 0)
+			qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
+		}
 	}
 }
 
@@ -136,22 +147,29 @@ func main() {
 
 		for j := 0; j < numHistograms; j++ {
 			lbl := strings.ReplaceAll(bucket.Label, " ", "_")
+			fmt.Println("------------------------------------")
 			fmt.Println("Experiment:", bucket.Label)
+			fmt.Println("------------------------------------")
 			if bucket.QuorumSizes != nil {
 				fmt.Printf("Quourm of %d nodes\n", bucket.QuorumSizes[j])
 				lbl = lbl + "_quorum" + strconv.Itoa(bucket.QuorumSizes[j])
 			}
+			fmt.Printf("Number of Observations: %d\n", histograms[i].Count())
 			fmt.Printf("Average Latency: %f ms\n", float64(histograms[i].Mean())/1000)
 			fmt.Printf("Variance: %f ms\n", histograms[i].Variance()/1000)
 			fmt.Printf("Std. Dev: %f ms\n", histograms[i].StdDev()/1000)
 			fmt.Printf("Std. Err: %f ms\n", histograms[i].StdErr()/1000)
+			fmt.Printf("25th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.25))/1000)
 			fmt.Printf("Median Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.5))/1000)
+			fmt.Printf("75th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.75))/1000)
+			fmt.Printf("90th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.90))/1000)
+			fmt.Printf("95th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.95))/1000)
 			fmt.Printf("99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99))/1000)
 			fmt.Printf("99.9th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.999))/1000)
 			fmt.Printf("99.99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.9999))/1000)
 			fmt.Printf("99.999th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99999))/1000)
 			fmt.Printf("Max Latency: %f ms\n", float64(histograms[i].Max())/1000)
-			fmt.Println("------")
+			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 			if *outdir != "" {
 				err = histograms[i].WriteToCSV(*outdir + "/histogram_" + lbl + ".csv")
@@ -262,7 +280,7 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 				}
 
 				for _, qd := range qds {
-					qd.AddQuorumLatency(latency, round)
+					qd.AddQuorumLatency(latency, round, record[2])
 				}
 			}
 
