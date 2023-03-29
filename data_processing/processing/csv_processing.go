@@ -3,14 +3,12 @@ package main
 import (
 	"compress/gzip"
 	"encoding/csv"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/UNH-DistSyS/UNH-CLT/csv_histogram/histogram"
+	"github.com/UNH-DistSyS/UNH-CLT/data_processing"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -18,90 +16,59 @@ import (
 var csvdir = flag.String("csvdir", "", "location of csv files")
 var outdir = flag.String("outdir", "", "location of output csv files")
 var experimentsJson = flag.String("experiments_json", "", "location of JSON file with experimental description")
-var bucketWidth = flag.Int("bucket", 5, "microseconds in each histogram bucket")
-var crateHistogramImages = flag.Bool("images", false, "whether to generate histogram images")
-
-type Bucket struct {
-	Label       string     `json:"label"`
-	NodePairs   [][]string `json:"node_pairs"`
-	QuorumSizes []int      `json:"quorum_sizes"`
-}
-
-type QuorumDescription struct {
-	StartNode string
-	EndNodes  []string
-	Size      int
-
-	roundLatencies map[int][]int // round -> list of latencies
-	Histogram      *histogram.Histogram
-}
-
-func newQuorumDescription(startNode string, size int, h *histogram.Histogram) *QuorumDescription {
-	return &QuorumDescription{
-		StartNode:      startNode,
-		EndNodes:       make([]string, 0),
-		Size:           size,
-		roundLatencies: make(map[int][]int, 0),
-		Histogram:      h,
-	}
-}
-
-func (qd *QuorumDescription) isValidEndNode(id string) bool {
-	for _, endNodeId := range qd.EndNodes {
-		if endNodeId == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (qd *QuorumDescription) AddQuorumLatency(latency, round int, nodeId string) {
-	if qd.isValidEndNode(nodeId) {
-		if _, exists := qd.roundLatencies[round]; exists {
-			qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
-
-			if len(qd.roundLatencies[round]) == len(qd.EndNodes) {
-				sort.Ints(qd.roundLatencies[round])
-				qd.Histogram.Add(qd.roundLatencies[round][qd.Size-1])
-				delete(qd.roundLatencies, round)
-			}
-		} else {
-			qd.roundLatencies[round] = make([]int, 0)
-			qd.roundLatencies[round] = append(qd.roundLatencies[round], latency)
-		}
-	}
-}
+var histogramBucketWidth = flag.Int("hb", 5, "microseconds in each histogram bucket")
+var windowWidth = flag.Int("ww", 1000, "milliseconds in each aggregated latency window")
+var crateImages = flag.Bool("images", true, "whether to generate histogram images")
+var trimRawData = flag.Int("trim", 20, "How many rounds to discard at the beginning and end of each data file")
 
 func main() {
 	flag.Parse()
-	buckets, err := parseJSON(*experimentsJson)
+	buckets, err := data_processing.ParseJSON(*experimentsJson)
 	if err != nil {
 		fmt.Println("Error parsing JSON:", err)
 		return
 	}
-	histograms := make([]*histogram.Histogram, 0)
-	pairsToHistograms := make(map[string][]*histogram.Histogram)
-	quorumDescriptions := make(map[string][]*QuorumDescription)
+	windowedAggregators := make([]*data_processing.WindowAggregator, 0)
+	histograms := make([]*data_processing.Histogram, 0)
+	pairsToHistograms := make(map[string][]*data_processing.Histogram)
+	pairsToWindowAggregators := make(map[string][]*data_processing.WindowAggregator)
+	quorumDescriptions := make(map[string][]*data_processing.QuorumDescription)
 	for i, bucket := range buckets {
 		fmt.Println(bucket.Label)
 		fmt.Println(bucket.NodePairs)
 
 		if bucket.QuorumSizes == nil {
-			h := histogram.NewHistogram(1e4, *bucketWidth)
-			histograms = append(histograms, h)
-			for _, nodePair := range bucket.NodePairs {
-				npStr := nodePair[0] + nodePair[1]
-				if hist, exists := pairsToHistograms[npStr]; exists {
-					hist = append(hist, histograms[i])
-				} else {
-					pairsToHistograms[npStr] = make([]*histogram.Histogram, 0)
-					pairsToHistograms[npStr] = append(pairsToHistograms[npStr], h)
+			if bucket.DoHistogram {
+				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
+				histograms = append(histograms, h)
+				for _, nodePair := range bucket.NodePairs {
+					npStr := nodePair[0] + nodePair[1]
+					if hist, exists := pairsToHistograms[npStr]; exists {
+						hist = append(hist, histograms[i])
+					} else {
+						pairsToHistograms[npStr] = make([]*data_processing.Histogram, 0)
+						pairsToHistograms[npStr] = append(pairsToHistograms[npStr], h)
+					}
+				}
+			}
+
+			if bucket.DoWindowedLatencyAggregation {
+				w := data_processing.NewWindowAggregator(*windowWidth)
+				windowedAggregators = append(windowedAggregators, w)
+				for _, nodePair := range bucket.NodePairs {
+					npStr := nodePair[0] + nodePair[1]
+					if wa, exists := pairsToWindowAggregators[npStr]; exists {
+						wa = append(wa, windowedAggregators[i])
+					} else {
+						pairsToWindowAggregators[npStr] = make([]*data_processing.WindowAggregator, 0)
+						pairsToWindowAggregators[npStr] = append(pairsToWindowAggregators[npStr], w)
+					}
 				}
 			}
 		} else {
 			fmt.Println("Quorum Mode")
 			for _, qs := range bucket.QuorumSizes {
-				h := histogram.NewHistogram(1e4, *bucketWidth)
+				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
 				histograms = append(histograms, h)
 				for _, nodePair := range bucket.NodePairs {
 					if qds, exists := quorumDescriptions[nodePair[0]]; exists {
@@ -113,13 +80,13 @@ func main() {
 							}
 						}
 						if !nodeAdded {
-							qd := newQuorumDescription(nodePair[0], qs, h)
+							qd := data_processing.NewQuorumDescription(nodePair[0], qs, h)
 							qd.EndNodes = append(qd.EndNodes, nodePair[1])
 							quorumDescriptions[nodePair[0]] = append(quorumDescriptions[nodePair[0]], qd)
 						}
 					} else {
-						quorumDescriptions[nodePair[0]] = make([]*QuorumDescription, 0)
-						qd := newQuorumDescription(nodePair[0], qs, h)
+						quorumDescriptions[nodePair[0]] = make([]*data_processing.QuorumDescription, 0)
+						qd := data_processing.NewQuorumDescription(nodePair[0], qs, h)
 						qd.EndNodes = append(qd.EndNodes, nodePair[1])
 						quorumDescriptions[nodePair[0]] = append(quorumDescriptions[nodePair[0]], qd)
 					}
@@ -130,14 +97,18 @@ func main() {
 
 	fmt.Println(pairsToHistograms)
 
-	_, err = parseCSVFiles(*csvdir, pairsToHistograms, quorumDescriptions)
+	_, err = parseCSVFiles(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
 	if err != nil {
 		fmt.Println("Error parsing CSV:", err)
 		return
 	}
 
+	// Printing histogram data
 	i := 0
 	for _, bucket := range buckets {
+		if !bucket.DoHistogram {
+			continue
+		}
 		numHistograms := 0
 		if bucket.QuorumSizes == nil {
 			numHistograms = 1
@@ -178,17 +149,52 @@ func main() {
 					return
 				}
 
-				if *crateHistogramImages {
-					histogram.PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
-					histogram.PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+				if *crateImages {
+					PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
+					PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
 				}
 			}
 			i += 1
 		}
 	}
+
+	// Printing latency over time data
+	i = 0
+	for _, bucket := range buckets {
+		if !bucket.DoWindowedLatencyAggregation {
+			continue
+		}
+		numAggregators := 0
+		if bucket.QuorumSizes == nil {
+			numAggregators = 1
+		} else {
+			numAggregators = len(bucket.QuorumSizes)
+		}
+
+		for j := 0; j < numAggregators; j++ {
+			lbl := strings.ReplaceAll(bucket.Label, " ", "_")
+			fmt.Println("------------------------------------")
+			fmt.Println("Experiment:", bucket.Label)
+			fmt.Println("------------------------------------")
+
+			if *outdir != "" {
+				err = windowedAggregators[i].WriteToCSV(*outdir + "/latency" + lbl + ".csv")
+				if err != nil {
+					fmt.Println("Error writing CSV", err)
+					return
+				}
+
+				if *crateImages {
+					PlotAggregatedLatencyOverTime(windowedAggregators[i], *outdir+"/latency"+lbl+".png", bucket.Label)
+				}
+			}
+			i += 1
+			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+		}
+	}
 }
 
-func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogram.Histogram, quorumDescriptions map[string][]*QuorumDescription) ([]string, error) {
+func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) ([]string, error) {
 	var filenames []string
 
 	// Walk the directory and get all CSV file names
@@ -204,6 +210,8 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 	if err != nil {
 		return nil, err
 	}
+
+	epochTime := -1
 
 	// Parse all CSV files
 	for _, filename := range filenames {
@@ -237,6 +245,7 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 			reader = csv.NewReader(file)
 		}
 
+		startRound := -1
 		for {
 			record, err := reader.Read()
 			if err == io.EOF {
@@ -247,6 +256,16 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 			}
 
 			if len(record) != 5 {
+				continue
+			}
+
+			round, err := strconv.Atoi(record[1])
+
+			if startRound == -1 {
+				startRound = round
+			}
+
+			if startRound+*trimRawData > round {
 				continue
 			}
 			// Do something with the CSV record, e.g. print it out
@@ -262,19 +281,21 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 				continue
 			}
 
+			if epochTime == -1 {
+				epochTime = startTime
+			}
+
 			latency := endTime - startTime
 
 			for _, hist := range pairsToHistograms[nodePairStr] {
 				hist.Add(latency)
 			}
 
-			/*round, err := strconv.Atoi(record[1])
-			if err != nil {
-				continue
-			}*/
+			for _, wa := range pairsToWinAggregators[nodePairStr] {
+				wa.Add((startTime-epochTime)/1000, latency)
+			}
 
 			if qds, exists := quorumDescriptions[record[0]]; exists {
-				round, err := strconv.Atoi(record[1])
 				if err != nil {
 					continue
 				}
@@ -288,24 +309,4 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*histogr
 	}
 
 	return filenames, nil
-}
-
-func parseJSON(filename string) ([]Bucket, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var result struct {
-		Buckets []Bucket `json:"buckets"`
-	}
-
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Buckets, nil
 }

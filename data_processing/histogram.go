@@ -1,4 +1,4 @@
-package histogram
+package data_processing
 
 import (
 	"encoding/csv"
@@ -28,7 +28,10 @@ func NewHistogram(defaultSize, bucketWidthNs int) *Histogram {
 		hist:                 latencyHistogramNs,
 		histogramBucketWidth: bucketWidthNs,
 	}
+}
 
+func (h *Histogram) GetHistogramBucketWith() int {
+	return h.histogramBucketWidth
 }
 
 func (h *Histogram) Add(measurement int) {

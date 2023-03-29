@@ -1,14 +1,15 @@
-package histogram
+package main
 
 import (
 	"fmt"
+	"github.com/UNH-DistSyS/UNH-CLT/data_processing"
 	"github.com/wcharczuk/go-chart"
 	"github.com/wcharczuk/go-chart/drawing"
 	"os"
 	"sort"
 )
 
-func PlotHistogram(hist *Histogram, filename, title string, normalizeYAxis bool, offset int) error {
+func PlotHistogram(hist *data_processing.Histogram, filename, title string, normalizeYAxis bool, offset int) error {
 	width := 2000
 	barStyle := chart.Style{
 		FillColor:   drawing.ColorFromHex("13c158"),
@@ -24,7 +25,7 @@ func PlotHistogram(hist *Histogram, filename, title string, normalizeYAxis bool,
 	// sort the keys
 	keys := make([]int, 0, len(data))
 	for k := range data {
-		if k*hist.histogramBucketWidth >= offset {
+		if k*hist.GetHistogramBucketWith() >= offset {
 			keys = append(keys, k)
 		}
 	}
@@ -50,7 +51,7 @@ func PlotHistogram(hist *Histogram, filename, title string, normalizeYAxis bool,
 		}
 
 		if i%2 == 0 {
-			chartVal.Label = fmt.Sprintf("%2.1f", float64(key*hist.histogramBucketWidth)/1000.0)
+			chartVal.Label = fmt.Sprintf("%2.1f", float64(key*hist.GetHistogramBucketWith())/1000.0)
 		}
 
 		values = append(values, chartVal)
@@ -92,6 +93,92 @@ func PlotHistogram(hist *Histogram, filename, title string, normalizeYAxis bool,
 		}
 
 		graph.YAxis.Ticks = ticks
+	}
+
+	graph.YAxis.Style.Show = true
+	graph.YAxis.GridMajorStyle.Show = true
+	graph.YAxis.GridMinorStyle.Show = false
+
+	graph.XAxis.Show = true
+	graph.XAxis.FontSize = 8
+	graph.XAxis.TextRotationDegrees = 45
+
+	// Save the chart as a PNG file
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = graph.Render(chart.PNG, file)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename, title string) error {
+	width := 2000
+	barStyle := chart.Style{
+		FillColor:   drawing.ColorFromHex("13c158"),
+		StrokeColor: drawing.ColorFromHex("13c158"),
+		StrokeWidth: 1,
+	}
+
+	// Prepare data for the histogram
+	var values []chart.Value
+	data := w.GetAverageAggregates()
+	barWidth := (width / len(data))
+
+	// sort the keys
+	keys := make([]int, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	max := 0.0
+
+	// write the data
+	for i, key := range keys {
+		value := float64(data[key])
+
+		if value > max {
+			max = value
+		}
+
+		chartVal := chart.Value{
+			Value: value,
+			Style: barStyle,
+		}
+
+		if i%10 == 0 {
+			chartVal.Label = fmt.Sprintf("%2.1f", float64(i*w.GetWindowWidth())/1000.0)
+		}
+
+		values = append(values, chartVal)
+	}
+
+	// Create the histogram chart
+	graph := chart.BarChart{
+		Title:      title,
+		TitleStyle: chart.StyleShow(),
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top:   100,
+				Right: 20,
+			},
+		},
+		Width:    width,
+		Height:   700,
+		BarWidth: barWidth,
+		Bars:     values,
+	}
+
+	graph.YAxis.Range = &chart.ContinuousRange{
+		Min: 0,
+		Max: max,
 	}
 
 	graph.YAxis.Style.Show = true
