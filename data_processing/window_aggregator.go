@@ -82,7 +82,7 @@ func (w *WindowAggregator) WriteToCSV(filename string) error {
 	// write the data
 	for _, key := range keys {
 		value := w.windows[key]
-		row := []string{strconv.Itoa(key), strconv.Itoa(value.sum / value.count)}
+		row := []string{strconv.Itoa(key * w.windowWidthMs), strconv.Itoa(value.sum / value.count)}
 		writer.Write(row)
 	}
 

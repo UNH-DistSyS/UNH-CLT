@@ -19,7 +19,7 @@ start_nodes() {
     serverArray=($cleaned_string)
     if [[ "${serverArray[0]}" != "0.0" ]]; then
       echo "Starting node ${serverArray[0]} on ${serverArray[1]}"
-      ssh -n -i ${3} $2@${serverArray[1]} "cd ${4}; ./node -id=${serverArray[0]} -log_level=debug> log.txt 2>&1 &"
+      ssh -n -i ${3} $2@${serverArray[1]} "cd ${4}; ./node -id=${serverArray[0]} -log_level=info> log.txt 2>&1 &"
     fi
   done < "${1}"
 }
@@ -69,7 +69,7 @@ upload_directory_to_servers() {
 #      1       2        3         4         5
 # username key.pem ip_address local_dir remote_dir
 upload_directory () {
-  echo "removing ${5} from remote"
+  echo "removing ${5} from remote ${3}"
 	ssh -n -i ${2} $1@$3 "rm -r $5"
   echo "uploading ${4} to ${3}"
 	scp -i ${2} -r $4 $1@$3:$5 < /dev/null

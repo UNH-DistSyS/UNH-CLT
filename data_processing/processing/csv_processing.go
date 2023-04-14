@@ -18,7 +18,7 @@ var outdir = flag.String("outdir", "", "location of output csv files")
 var experimentsJson = flag.String("experiments_json", "", "location of JSON file with experimental description")
 var histogramBucketWidth = flag.Int("hb", 5, "microseconds in each histogram bucket")
 var windowWidth = flag.Int("ww", 1000, "milliseconds in each aggregated latency window")
-var crateImages = flag.Bool("images", true, "whether to generate histogram images")
+var crateImages = flag.Bool("images", false, "whether to generate histogram images")
 var trimRawData = flag.Int("trim", 20, "How many rounds to discard at the beginning and end of each data file")
 
 func main() {
@@ -117,41 +117,43 @@ func main() {
 		}
 
 		for j := 0; j < numHistograms; j++ {
-			lbl := strings.ReplaceAll(bucket.Label, " ", "_")
-			fmt.Println("------------------------------------")
-			fmt.Println("Experiment:", bucket.Label)
-			fmt.Println("------------------------------------")
-			if bucket.QuorumSizes != nil {
-				fmt.Printf("Quourm of %d nodes\n", bucket.QuorumSizes[j])
-				lbl = lbl + "_quorum" + strconv.Itoa(bucket.QuorumSizes[j])
-			}
-			fmt.Printf("Number of Observations: %d\n", histograms[i].Count())
-			fmt.Printf("Average Latency: %f ms\n", float64(histograms[i].Mean())/1000)
-			fmt.Printf("Variance: %f ms\n", histograms[i].Variance()/1000)
-			fmt.Printf("Std. Dev: %f ms\n", histograms[i].StdDev()/1000)
-			fmt.Printf("Std. Err: %f ms\n", histograms[i].StdErr()/1000)
-			fmt.Printf("25th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.25))/1000)
-			fmt.Printf("Median Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.5))/1000)
-			fmt.Printf("75th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.75))/1000)
-			fmt.Printf("90th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.90))/1000)
-			fmt.Printf("95th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.95))/1000)
-			fmt.Printf("99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99))/1000)
-			fmt.Printf("99.9th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.999))/1000)
-			fmt.Printf("99.99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.9999))/1000)
-			fmt.Printf("99.999th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99999))/1000)
-			fmt.Printf("Max Latency: %f ms\n", float64(histograms[i].Max())/1000)
-			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-			if *outdir != "" {
-				err = histograms[i].WriteToCSV(*outdir + "/histogram_" + lbl + ".csv")
-				if err != nil {
-					fmt.Println("Error writing CSV", err)
-					return
+			if histograms[i].Count() > 0 {
+				lbl := strings.ReplaceAll(bucket.Label, " ", "_")
+				fmt.Println("------------------------------------")
+				fmt.Println("Experiment:", bucket.Label)
+				fmt.Println("------------------------------------")
+				if bucket.QuorumSizes != nil {
+					fmt.Printf("Quourm of %d nodes\n", bucket.QuorumSizes[j])
+					lbl = lbl + "_quorum" + strconv.Itoa(bucket.QuorumSizes[j])
 				}
+				fmt.Printf("Number of Observations: %d\n", histograms[i].Count())
+				fmt.Printf("Average Latency: %f ms\n", float64(histograms[i].Mean())/1000)
+				fmt.Printf("Variance: %f ms\n", histograms[i].Variance()/1000)
+				fmt.Printf("Std. Dev: %f ms\n", histograms[i].StdDev()/1000)
+				fmt.Printf("Std. Err: %f ms\n", histograms[i].StdErr()/1000)
+				fmt.Printf("25th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.25))/1000)
+				fmt.Printf("Median Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.5))/1000)
+				fmt.Printf("75th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.75))/1000)
+				fmt.Printf("90th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.90))/1000)
+				fmt.Printf("95th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.95))/1000)
+				fmt.Printf("99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99))/1000)
+				fmt.Printf("99.9th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.999))/1000)
+				fmt.Printf("99.99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.9999))/1000)
+				fmt.Printf("99.999th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99999))/1000)
+				fmt.Printf("Max Latency: %f ms\n", float64(histograms[i].Max())/1000)
+				fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-				if *crateImages {
-					PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
-					PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+				if *outdir != "" {
+					err = histograms[i].WriteToCSV(*outdir + "/histogram_" + lbl + ".csv")
+					if err != nil {
+						fmt.Println("Error writing CSV", err)
+						return
+					}
+
+					if *crateImages {
+						PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
+						PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+					}
 				}
 			}
 			i += 1

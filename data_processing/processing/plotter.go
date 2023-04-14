@@ -119,7 +119,6 @@ func PlotHistogram(hist *data_processing.Histogram, filename, title string, norm
 }
 
 func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename, title string) error {
-	width := 2000
 	barStyle := chart.Style{
 		FillColor:   drawing.ColorFromHex("13c158"),
 		StrokeColor: drawing.ColorFromHex("13c158"),
@@ -127,9 +126,17 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 	}
 
 	// Prepare data for the histogram
-	var values []chart.Value
 	data := w.GetAverageAggregates()
-	barWidth := (width / len(data))
+	width := 0
+	barWidth := 1
+	if len(data) < 1000 {
+		width = 2 * len(data)
+		barWidth = 2
+	} else {
+		width = len(data)
+	}
+	width = width + 150
+	var values []chart.Value
 
 	// sort the keys
 	keys := make([]int, 0, len(data))
@@ -153,8 +160,8 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 			Style: barStyle,
 		}
 
-		if i%10 == 0 {
-			chartVal.Label = fmt.Sprintf("%2.1f", float64(i*w.GetWindowWidth())/1000.0)
+		if i%100 == 0 {
+			chartVal.Label = fmt.Sprintf("%d", i*w.GetWindowWidth()/1000)
 		}
 
 		values = append(values, chartVal)
@@ -167,7 +174,7 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 		Background: chart.Style{
 			Padding: chart.Box{
 				Top:   100,
-				Right: 20,
+				Right: 50,
 			},
 		},
 		Width:    width,
@@ -187,7 +194,6 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 
 	graph.XAxis.Show = true
 	graph.XAxis.FontSize = 8
-	graph.XAxis.TextRotationDegrees = 45
 
 	// Save the chart as a PNG file
 	file, err := os.Create(filename)
