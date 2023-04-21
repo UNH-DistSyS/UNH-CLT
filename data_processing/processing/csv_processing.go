@@ -28,19 +28,36 @@ func main() {
 		fmt.Println("Error parsing JSON:", err)
 		return
 	}
-	windowedAggregators := make([]*data_processing.WindowAggregator, 0)
-	histograms := make([]*data_processing.Histogram, 0)
+	bucketCount := 0
+	for _, bucket := range buckets {
+		if bucket.QuorumSizes == nil {
+			bucketCount += 1
+		} else {
+			bucketCount += 2
+		}
+	}
+
+	err = createDirIfNotExists(*outdir)
+	if err != nil {
+		fmt.Println("Error creating output directory", err)
+		return
+	}
+
+	windowedAggregators := make([]*data_processing.WindowAggregator, bucketCount)
+	histograms := make([]*data_processing.Histogram, bucketCount)
 	pairsToHistograms := make(map[string][]*data_processing.Histogram)
 	pairsToWindowAggregators := make(map[string][]*data_processing.WindowAggregator)
 	quorumDescriptions := make(map[string][]*data_processing.QuorumDescription)
-	for i, bucket := range buckets {
+	i := 0
+	for _, bucket := range buckets {
 		fmt.Println(bucket.Label)
 		fmt.Println(bucket.NodePairs)
 
 		if bucket.QuorumSizes == nil {
 			if bucket.DoHistogram {
 				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
-				histograms = append(histograms, h)
+				//histograms = append(histograms, h)
+				histograms[i] = h
 				for _, nodePair := range bucket.NodePairs {
 					npStr := nodePair[0] + nodePair[1]
 					if hist, exists := pairsToHistograms[npStr]; exists {
@@ -69,7 +86,7 @@ func main() {
 			fmt.Println("Quorum Mode")
 			for _, qs := range bucket.QuorumSizes {
 				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
-				histograms = append(histograms, h)
+				histograms[i] = h
 				for _, nodePair := range bucket.NodePairs {
 					if qds, exists := quorumDescriptions[nodePair[0]]; exists {
 						nodeAdded := false
@@ -93,6 +110,7 @@ func main() {
 				}
 			}
 		}
+		i += 1
 	}
 
 	fmt.Println(pairsToHistograms)
@@ -104,7 +122,7 @@ func main() {
 	}
 
 	// Printing histogram data
-	i := 0
+	i = 0
 	for _, bucket := range buckets {
 		if !bucket.DoHistogram {
 			continue
@@ -117,33 +135,27 @@ func main() {
 		}
 
 		for j := 0; j < numHistograms; j++ {
-			if histograms[i].Count() > 0 {
+			if histograms[i] != nil && histograms[i].Count() > 0 {
+
+				printSummaryStatistics(os.Stdout, bucket.Label, histograms[i])
+
 				lbl := strings.ReplaceAll(bucket.Label, " ", "_")
-				fmt.Println("------------------------------------")
-				fmt.Println("Experiment:", bucket.Label)
-				fmt.Println("------------------------------------")
 				if bucket.QuorumSizes != nil {
 					fmt.Printf("Quourm of %d nodes\n", bucket.QuorumSizes[j])
 					lbl = lbl + "_quorum" + strconv.Itoa(bucket.QuorumSizes[j])
 				}
-				fmt.Printf("Number of Observations: %d\n", histograms[i].Count())
-				fmt.Printf("Average Latency: %f ms\n", float64(histograms[i].Mean())/1000)
-				fmt.Printf("Variance: %f ms\n", histograms[i].Variance()/1000)
-				fmt.Printf("Std. Dev: %f ms\n", histograms[i].StdDev()/1000)
-				fmt.Printf("Std. Err: %f ms\n", histograms[i].StdErr()/1000)
-				fmt.Printf("25th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.25))/1000)
-				fmt.Printf("Median Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.5))/1000)
-				fmt.Printf("75th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.75))/1000)
-				fmt.Printf("90th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.90))/1000)
-				fmt.Printf("95th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.95))/1000)
-				fmt.Printf("99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99))/1000)
-				fmt.Printf("99.9th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.999))/1000)
-				fmt.Printf("99.99th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.9999))/1000)
-				fmt.Printf("99.999th Percentile Latency: %f ms\n", float64(histograms[i].ApproxPercentile(0.99999))/1000)
-				fmt.Printf("Max Latency: %f ms\n", float64(histograms[i].Max())/1000)
-				fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 				if *outdir != "" {
+					file, err := os.Create(*outdir + "/stats_" + lbl + ".txt")
+					if err != nil {
+						fmt.Println("Error creating stats file:", err)
+						return
+					}
+
+					printSummaryStatistics(file, bucket.Label, histograms[i])
+
+					file.Close()
+
 					err = histograms[i].WriteToCSV(*outdir + "/histogram_" + lbl + ".csv")
 					if err != nil {
 						fmt.Println("Error writing CSV", err)
@@ -151,8 +163,16 @@ func main() {
 					}
 
 					if *crateImages {
-						PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
-						PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+						err = PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
+						if err != nil {
+							fmt.Println("Error plotting the latency histogram", err)
+							return
+						}
+						err = PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+						if err != nil {
+							fmt.Println("Error plotting the latency histogram", err)
+							return
+						}
 					}
 				}
 			}
@@ -179,7 +199,7 @@ func main() {
 			fmt.Println("Experiment:", bucket.Label)
 			fmt.Println("------------------------------------")
 
-			if *outdir != "" {
+			if *outdir != "" && windowedAggregators[i] != nil {
 				err = windowedAggregators[i].WriteToCSV(*outdir + "/latency" + lbl + ".csv")
 				if err != nil {
 					fmt.Println("Error writing CSV", err)
@@ -187,13 +207,39 @@ func main() {
 				}
 
 				if *crateImages {
-					PlotAggregatedLatencyOverTime(windowedAggregators[i], *outdir+"/latency"+lbl+".png", bucket.Label)
+					err = PlotAggregatedLatencyOverTime(windowedAggregators[i], *outdir+"/latency"+lbl+".png", bucket.Label)
+					if err != nil {
+						fmt.Println("Error plotting the latency overtime figure", err)
+						return
+					}
 				}
 			}
 			i += 1
 			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		}
 	}
+}
+
+func printSummaryStatistics(file *os.File, label string, hist *data_processing.Histogram) {
+	fmt.Fprintln(file, "------------------------------------")
+	fmt.Fprintln(file, "Experiment:", label)
+	fmt.Fprintln(file, "------------------------------------")
+	fmt.Fprintf(file, "Number of Observations: %d\n", hist.Count())
+	fmt.Fprintf(file, "Average Latency: %f ms\n", float64(hist.Mean())/1000)
+	fmt.Fprintf(file, "Variance: %f ms\n", hist.Variance()/1000)
+	fmt.Fprintf(file, "Std. Dev: %f ms\n", hist.StdDev()/1000)
+	fmt.Fprintf(file, "Std. Err: %f ms\n", hist.StdErr()/1000)
+	fmt.Fprintf(file, "25th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.25))/1000)
+	fmt.Fprintf(file, "Median Latency: %f ms\n", float64(hist.ApproxPercentile(0.5))/1000)
+	fmt.Fprintf(file, "75th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.75))/1000)
+	fmt.Fprintf(file, "90th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.90))/1000)
+	fmt.Fprintf(file, "95th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.95))/1000)
+	fmt.Fprintf(file, "99th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.99))/1000)
+	fmt.Fprintf(file, "99.9th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.999))/1000)
+	fmt.Fprintf(file, "99.99th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.9999))/1000)
+	fmt.Fprintf(file, "99.999th Percentile Latency: %f ms\n", float64(hist.ApproxPercentile(0.99999))/1000)
+	fmt.Fprintf(file, "Max Latency: %f ms\n", float64(hist.Max())/1000)
+	fmt.Fprintf(file, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 }
 
 func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) ([]string, error) {
@@ -311,4 +357,12 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_pr
 	}
 
 	return filenames, nil
+}
+
+func createDirIfNotExists(path string) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(path, 0755)
+	}
+	return err
 }
