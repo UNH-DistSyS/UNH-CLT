@@ -125,6 +125,7 @@ func main() {
 	i = 0
 	for _, bucket := range buckets {
 		if !bucket.DoHistogram {
+			i += 1
 			continue
 		}
 		numHistograms := 0
@@ -184,6 +185,7 @@ func main() {
 	i = 0
 	for _, bucket := range buckets {
 		if !bucket.DoWindowedLatencyAggregation {
+			i += 1
 			continue
 		}
 		numAggregators := 0
