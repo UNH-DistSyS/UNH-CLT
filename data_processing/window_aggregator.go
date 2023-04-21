@@ -35,7 +35,6 @@ func (w *WindowAggregator) GetWindowWidth() int {
 }
 
 func (w *WindowAggregator) Add(startTimeMs, measurement int) {
-	// TODO lock map?
 	w.Lock()
 	defer w.Unlock()
 
@@ -54,6 +53,8 @@ func (w *WindowAggregator) Add(startTimeMs, measurement int) {
 }
 
 func (w *WindowAggregator) WriteToCSV(filename string) error {
+	w.RLock()
+	defer w.RUnlock()
 	// create the CSV file
 	file, err := os.Create(filename)
 	if err != nil {

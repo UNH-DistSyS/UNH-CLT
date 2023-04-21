@@ -9,8 +9,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var csvdir = flag.String("csvdir", "", "location of csv files")
@@ -43,25 +45,25 @@ func main() {
 		return
 	}
 
-	windowedAggregators := make([]*data_processing.WindowAggregator, bucketCount)
-	histograms := make([]*data_processing.Histogram, bucketCount)
+	windowedAggregators := make(map[string]*data_processing.WindowAggregator, bucketCount)
+	histograms := make(map[string]*data_processing.Histogram, bucketCount)
+
 	pairsToHistograms := make(map[string][]*data_processing.Histogram)
 	pairsToWindowAggregators := make(map[string][]*data_processing.WindowAggregator)
 	quorumDescriptions := make(map[string][]*data_processing.QuorumDescription)
-	i := 0
 	for _, bucket := range buckets {
 		fmt.Println(bucket.Label)
 		fmt.Println(bucket.NodePairs)
 
 		if bucket.QuorumSizes == nil {
+			fileNameStubs := bucket.GetFileNameStubs()
 			if bucket.DoHistogram {
 				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
-				//histograms = append(histograms, h)
-				histograms[i] = h
+				histograms[fileNameStubs[0]] = h
 				for _, nodePair := range bucket.NodePairs {
 					npStr := nodePair[0] + nodePair[1]
 					if hist, exists := pairsToHistograms[npStr]; exists {
-						hist = append(hist, histograms[i])
+						hist = append(hist, histograms[fileNameStubs[0]])
 					} else {
 						pairsToHistograms[npStr] = make([]*data_processing.Histogram, 0)
 						pairsToHistograms[npStr] = append(pairsToHistograms[npStr], h)
@@ -71,11 +73,11 @@ func main() {
 
 			if bucket.DoWindowedLatencyAggregation {
 				w := data_processing.NewWindowAggregator(*windowWidth)
-				windowedAggregators = append(windowedAggregators, w)
+				windowedAggregators[fileNameStubs[0]] = w
 				for _, nodePair := range bucket.NodePairs {
 					npStr := nodePair[0] + nodePair[1]
 					if wa, exists := pairsToWindowAggregators[npStr]; exists {
-						wa = append(wa, windowedAggregators[i])
+						wa = append(wa, windowedAggregators[fileNameStubs[0]])
 					} else {
 						pairsToWindowAggregators[npStr] = make([]*data_processing.WindowAggregator, 0)
 						pairsToWindowAggregators[npStr] = append(pairsToWindowAggregators[npStr], w)
@@ -86,7 +88,8 @@ func main() {
 			fmt.Println("Quorum Mode")
 			for _, qs := range bucket.QuorumSizes {
 				h := data_processing.NewHistogram(1e4, *histogramBucketWidth)
-				histograms[i] = h
+				_, fnStub := bucket.GetFileNameStubForQuorum(qs)
+				histograms[fnStub] = h
 				for _, nodePair := range bucket.NodePairs {
 					if qds, exists := quorumDescriptions[nodePair[0]]; exists {
 						nodeAdded := false
@@ -110,66 +113,51 @@ func main() {
 				}
 			}
 		}
-		i += 1
 	}
 
 	fmt.Println(pairsToHistograms)
 
-	_, err = parseCSVFiles(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
+	_, err = parseCSVFilesParallel(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
 	if err != nil {
 		fmt.Println("Error parsing CSV:", err)
 		return
 	}
 
 	// Printing histogram data
-	i = 0
 	for _, bucket := range buckets {
 		if !bucket.DoHistogram {
-			i += 1
 			continue
 		}
-		numHistograms := 0
-		if bucket.QuorumSizes == nil {
-			numHistograms = 1
-		} else {
-			numHistograms = len(bucket.QuorumSizes)
-		}
 
-		for j := 0; j < numHistograms; j++ {
-			if histograms[i] != nil && histograms[i].Count() > 0 {
+		for _, fnStub := range bucket.GetFileNameStubs() {
+			if histograms[fnStub] != nil && histograms[fnStub].Count() > 0 {
 
-				printSummaryStatistics(os.Stdout, bucket.Label, histograms[i])
-
-				lbl := strings.ReplaceAll(bucket.Label, " ", "_")
-				if bucket.QuorumSizes != nil {
-					fmt.Printf("Quourm of %d nodes\n", bucket.QuorumSizes[j])
-					lbl = lbl + "_quorum" + strconv.Itoa(bucket.QuorumSizes[j])
-				}
+				printSummaryStatistics(os.Stdout, bucket.Label, histograms[fnStub])
 
 				if *outdir != "" {
-					file, err := os.Create(*outdir + "/stats_" + lbl + ".txt")
+					file, err := os.Create(*outdir + "/stats_" + fnStub + ".txt")
 					if err != nil {
 						fmt.Println("Error creating stats file:", err)
 						return
 					}
 
-					printSummaryStatistics(file, bucket.Label, histograms[i])
+					printSummaryStatistics(file, bucket.Label, histograms[fnStub])
 
 					file.Close()
 
-					err = histograms[i].WriteToCSV(*outdir + "/histogram_" + lbl + ".csv")
+					err = histograms[fnStub].WriteToCSV(*outdir + "/histogram_" + fnStub + ".csv")
 					if err != nil {
 						fmt.Println("Error writing CSV", err)
 						return
 					}
 
 					if *crateImages {
-						err = PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+".png", bucket.Label, true, 0)
+						err = PlotHistogram(histograms[fnStub], *outdir+"/histogram_"+fnStub+".png", bucket.Label, true, 0)
 						if err != nil {
 							fmt.Println("Error plotting the latency histogram", err)
 							return
 						}
-						err = PlotHistogram(histograms[i], *outdir+"/histogram_"+lbl+"_tail.png", bucket.Label, true, 1000)
+						err = PlotHistogram(histograms[fnStub], *outdir+"/histogram_"+fnStub+"_tail.png", bucket.Label, true, 1000)
 						if err != nil {
 							fmt.Println("Error plotting the latency histogram", err)
 							return
@@ -177,46 +165,35 @@ func main() {
 					}
 				}
 			}
-			i += 1
 		}
 	}
 
 	// Printing latency over time data
-	i = 0
 	for _, bucket := range buckets {
 		if !bucket.DoWindowedLatencyAggregation {
-			i += 1
 			continue
 		}
-		numAggregators := 0
-		if bucket.QuorumSizes == nil {
-			numAggregators = 1
-		} else {
-			numAggregators = len(bucket.QuorumSizes)
-		}
 
-		for j := 0; j < numAggregators; j++ {
-			lbl := strings.ReplaceAll(bucket.Label, " ", "_")
+		for _, fnStub := range bucket.GetFileNameStubs() {
 			fmt.Println("------------------------------------")
 			fmt.Println("Experiment:", bucket.Label)
 			fmt.Println("------------------------------------")
 
-			if *outdir != "" && windowedAggregators[i] != nil {
-				err = windowedAggregators[i].WriteToCSV(*outdir + "/latency" + lbl + ".csv")
+			if *outdir != "" && windowedAggregators[fnStub] != nil {
+				err = windowedAggregators[fnStub].WriteToCSV(*outdir + "/latency" + fnStub + ".csv")
 				if err != nil {
 					fmt.Println("Error writing CSV", err)
 					return
 				}
 
 				if *crateImages {
-					err = PlotAggregatedLatencyOverTime(windowedAggregators[i], *outdir+"/latency"+lbl+".png", bucket.Label)
+					err = PlotAggregatedLatencyOverTime(windowedAggregators[fnStub], *outdir+"/latency"+fnStub+".png", bucket.Label)
 					if err != nil {
 						fmt.Println("Error plotting the latency overtime figure", err)
 						return
 					}
 				}
 			}
-			i += 1
 			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		}
 	}
@@ -357,6 +334,137 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_pr
 
 		}
 	}
+
+	return filenames, nil
+}
+
+func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) ([]string, error) {
+	var filenames []string
+
+	// Walk the directory and get all CSV file names
+	err := filepath.Walk(directoryPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if strings.HasSuffix(path, ".csv") || strings.HasSuffix(path, ".csv.gz") {
+			filenames = append(filenames, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	epochTime := -1
+
+	// Parse all CSV files
+	wg := sync.WaitGroup{}
+	wg.Add(len(filenames))
+	semaphore := make(chan struct{}, runtime.NumCPU())
+	for _, fn := range filenames {
+		go func(filename string) {
+			semaphore <- struct{}{}
+			fmt.Println("Working on", filename)
+			var file *os.File
+			var reader *csv.Reader
+
+			if strings.HasSuffix(filename, ".gz") {
+				// If the file is gzipped, decompress it first
+				file, err = os.Open(filename)
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				defer file.Close()
+
+				gzipReader, err := gzip.NewReader(file)
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				defer gzipReader.Close()
+
+				reader = csv.NewReader(gzipReader)
+			} else {
+				// If the file is not gzipped, just open it normally
+				file, err = os.Open(filename)
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				defer file.Close()
+
+				reader = csv.NewReader(file)
+			}
+
+			startRound := -1
+			for {
+				record, err := reader.Read()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+
+				if len(record) != 5 {
+					continue
+				}
+
+				round, err := strconv.Atoi(record[1])
+
+				if startRound == -1 {
+					startRound = round
+				}
+
+				if startRound+*trimRawData > round {
+					continue
+				}
+				// Do something with the CSV record, e.g. print it out
+				//fmt.Println(record)
+				nodePairStr := record[0] + record[2]
+
+				startTime, err := strconv.Atoi(record[3])
+				if err != nil {
+					continue
+				}
+				endTime, err := strconv.Atoi(record[4])
+				if err != nil {
+					continue
+				}
+
+				if epochTime == -1 {
+					epochTime = startTime
+				}
+
+				latency := endTime - startTime
+
+				for _, hist := range pairsToHistograms[nodePairStr] {
+					hist.Add(latency)
+				}
+
+				for _, wa := range pairsToWinAggregators[nodePairStr] {
+					wa.Add((startTime-epochTime)/1000, latency)
+				}
+
+				if qds, exists := quorumDescriptions[record[0]]; exists {
+					if err != nil {
+						continue
+					}
+
+					for _, qd := range qds {
+						qd.AddQuorumLatency(latency, round, record[2])
+					}
+				}
+
+			}
+			<-semaphore
+			wg.Done()
+		}(fn)
+	}
+
+	wg.Wait()
 
 	return filenames, nil
 }

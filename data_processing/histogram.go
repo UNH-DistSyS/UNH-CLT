@@ -35,7 +35,6 @@ func (h *Histogram) GetHistogramBucketWith() int {
 }
 
 func (h *Histogram) Add(measurement int) {
-	// TODO lock map?
 	h.Lock()
 	defer h.Unlock()
 	h.hist[int(measurement)/h.histogramBucketWidth] += 1
@@ -136,6 +135,8 @@ func (h *Histogram) Max() int {
 }
 
 func (h *Histogram) WriteToCSV(filename string) error {
+	h.RLock()
+	defer h.RUnlock()
 	// create the CSV file
 	file, err := os.Create(filename)
 	if err != nil {
@@ -181,7 +182,8 @@ func (h *Histogram) WriteToCSV(filename string) error {
 }
 
 func (h *Histogram) GetHistogram() map[int]int {
-
+	h.RLock()
+	defer h.RUnlock()
 	truncatedhist := make(map[int]int)
 	maxBucket := 0
 	for i, c := range h.hist {
