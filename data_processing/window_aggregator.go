@@ -34,6 +34,17 @@ func (w *WindowAggregator) GetWindowWidth() int {
 	return w.windowWidthMs
 }
 
+func (w *WindowAggregator) AdjustForEpochTime(et int) {
+	windTemp := w.windows
+	w.windows = make(map[int]*windowStat)
+
+	etBucket := et / w.windowWidthMs
+
+	for t, ws := range windTemp {
+		w.windows[t-etBucket] = ws
+	}
+}
+
 func (w *WindowAggregator) Add(startTimeMs, measurement int) {
 	w.Lock()
 	defer w.Unlock()

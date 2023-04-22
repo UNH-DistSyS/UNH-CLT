@@ -21,7 +21,7 @@ var experimentsJson = flag.String("experiments_json", "", "location of JSON file
 var histogramBucketWidth = flag.Int("hb", 5, "microseconds in each histogram bucket")
 var windowWidth = flag.Int("ww", 1000, "milliseconds in each aggregated latency window")
 var crateImages = flag.Bool("images", false, "whether to generate histogram images")
-var trimRawData = flag.Int("trim", 20, "How many rounds to discard at the beginning and end of each data file")
+var trimRawData = flag.Int("trim", 0, "How many rounds to discard at the beginning of each data file")
 
 func main() {
 	flag.Parse()
@@ -115,12 +115,14 @@ func main() {
 		}
 	}
 
-	fmt.Println(pairsToHistograms)
-
-	_, err = parseCSVFilesParallel(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
+	err, _, epochTime := parseCSVFilesParallel(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
 	if err != nil {
 		fmt.Println("Error parsing CSV:", err)
 		return
+	}
+
+	for _, wa := range windowedAggregators {
+		wa.AdjustForEpochTime(epochTime)
 	}
 
 	// Printing histogram data
@@ -131,8 +133,7 @@ func main() {
 
 		for _, fnStub := range bucket.GetFileNameStubs() {
 			if histograms[fnStub] != nil && histograms[fnStub].Count() > 0 {
-
-				printSummaryStatistics(os.Stdout, bucket.Label, histograms[fnStub])
+				fmt.Println("Saving summary statistics and latency histogram data for", bucket.Label)
 
 				if *outdir != "" {
 					file, err := os.Create(*outdir + "/stats_" + fnStub + ".txt")
@@ -175,26 +176,23 @@ func main() {
 		}
 
 		for _, fnStub := range bucket.GetFileNameStubs() {
-			fmt.Println("------------------------------------")
-			fmt.Println("Experiment:", bucket.Label)
-			fmt.Println("------------------------------------")
+			fmt.Println("Saving windowed latency data for", bucket.Label)
 
 			if *outdir != "" && windowedAggregators[fnStub] != nil {
-				err = windowedAggregators[fnStub].WriteToCSV(*outdir + "/latency" + fnStub + ".csv")
+				err = windowedAggregators[fnStub].WriteToCSV(*outdir + "/latency_" + fnStub + ".csv")
 				if err != nil {
 					fmt.Println("Error writing CSV", err)
 					return
 				}
 
 				if *crateImages {
-					err = PlotAggregatedLatencyOverTime(windowedAggregators[fnStub], *outdir+"/latency"+fnStub+".png", bucket.Label)
+					err = PlotAggregatedLatencyOverTime(windowedAggregators[fnStub], *outdir+"/latency_"+fnStub+".png", bucket.Label)
 					if err != nil {
 						fmt.Println("Error plotting the latency overtime figure", err)
 						return
 					}
 				}
 			}
-			fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		}
 	}
 }
@@ -221,7 +219,7 @@ func printSummaryStatistics(file *os.File, label string, hist *data_processing.H
 	fmt.Fprintf(file, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 }
 
-func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) ([]string, error) {
+func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) (error, []string, int) {
 	var filenames []string
 
 	// Walk the directory and get all CSV file names
@@ -235,136 +233,23 @@ func parseCSVFiles(directoryPath string, pairsToHistograms map[string][]*data_pr
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return err, nil, -1
 	}
 
-	epochTime := -1
-
-	// Parse all CSV files
-	for _, filename := range filenames {
-		fmt.Println("Working on", filename)
-		var file *os.File
-		var reader *csv.Reader
-
-		if strings.HasSuffix(filename, ".gz") {
-			// If the file is gzipped, decompress it first
-			file, err = os.Open(filename)
-			if err != nil {
-				return nil, err
-			}
-			defer file.Close()
-
-			gzipReader, err := gzip.NewReader(file)
-			if err != nil {
-				return nil, err
-			}
-			defer gzipReader.Close()
-
-			reader = csv.NewReader(gzipReader)
-		} else {
-			// If the file is not gzipped, just open it normally
-			file, err = os.Open(filename)
-			if err != nil {
-				return nil, err
-			}
-			defer file.Close()
-
-			reader = csv.NewReader(file)
-		}
-
-		startRound := -1
-		for {
-			record, err := reader.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-
-			if len(record) != 5 {
-				continue
-			}
-
-			round, err := strconv.Atoi(record[1])
-
-			if startRound == -1 {
-				startRound = round
-			}
-
-			if startRound+*trimRawData > round {
-				continue
-			}
-			// Do something with the CSV record, e.g. print it out
-			//fmt.Println(record)
-			nodePairStr := record[0] + record[2]
-
-			startTime, err := strconv.Atoi(record[3])
-			if err != nil {
-				continue
-			}
-			endTime, err := strconv.Atoi(record[4])
-			if err != nil {
-				continue
-			}
-
-			if epochTime == -1 {
-				epochTime = startTime
-			}
-
-			latency := endTime - startTime
-
-			for _, hist := range pairsToHistograms[nodePairStr] {
-				hist.Add(latency)
-			}
-
-			for _, wa := range pairsToWinAggregators[nodePairStr] {
-				wa.Add((startTime-epochTime)/1000, latency)
-			}
-
-			if qds, exists := quorumDescriptions[record[0]]; exists {
-				if err != nil {
-					continue
-				}
-
-				for _, qd := range qds {
-					qd.AddQuorumLatency(latency, round, record[2])
-				}
-			}
-
-		}
-	}
-
-	return filenames, nil
-}
-
-func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) ([]string, error) {
-	var filenames []string
-
-	// Walk the directory and get all CSV file names
-	err := filepath.Walk(directoryPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if strings.HasSuffix(path, ".csv") || strings.HasSuffix(path, ".csv.gz") {
-			filenames = append(filenames, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	epochTime := -1
+	var etlock sync.Mutex
+	epochTimeMs := int((^uint(0)) >> 1)
 
 	// Parse all CSV files
 	wg := sync.WaitGroup{}
 	wg.Add(len(filenames))
-	semaphore := make(chan struct{}, runtime.NumCPU())
+	semaphore := make(chan struct{}, runtime.NumCPU()*2)
+	numFiles := len(filenames)
+	processedFiles := 0
 	for _, fn := range filenames {
 		go func(filename string) {
+			localEpochTimeMicroSeconds := -1
 			semaphore <- struct{}{}
-			fmt.Println("Working on", filename)
+			//fmt.Println("Working on", filename)
 			var file *os.File
 			var reader *csv.Reader
 
@@ -434,8 +319,8 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 					continue
 				}
 
-				if epochTime == -1 {
-					epochTime = startTime
+				if localEpochTimeMicroSeconds == -1 || localEpochTimeMicroSeconds > startTime {
+					localEpochTimeMicroSeconds = startTime
 				}
 
 				latency := endTime - startTime
@@ -445,7 +330,7 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 				}
 
 				for _, wa := range pairsToWinAggregators[nodePairStr] {
-					wa.Add((startTime-epochTime)/1000, latency)
+					wa.Add((startTime)/1000, latency)
 				}
 
 				if qds, exists := quorumDescriptions[record[0]]; exists {
@@ -459,14 +344,23 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 				}
 
 			}
+
+			etlock.Lock()
+			if localEpochTimeMicroSeconds/1000 < epochTimeMs {
+				epochTimeMs = localEpochTimeMicroSeconds / 1000
+			}
+			etlock.Unlock()
+
+			processedFiles += 1
+
+			fmt.Printf("\r Processed: %d/%d: %s", processedFiles, numFiles, getProgressBarStr(50, float64(processedFiles)/float64(numFiles)))
 			<-semaphore
 			wg.Done()
 		}(fn)
 	}
 
 	wg.Wait()
-
-	return filenames, nil
+	return nil, filenames, epochTimeMs
 }
 
 func createDirIfNotExists(path string) error {
@@ -475,4 +369,19 @@ func createDirIfNotExists(path string) error {
 		err = os.Mkdir(path, 0755)
 	}
 	return err
+}
+
+func getProgressBarStr(strLen int, progress float64) string {
+	progressSpace := int(float64(strLen) * progress)
+	progressStr := "["
+	for i := 0; i < strLen; i++ {
+		if progressSpace > 0 {
+			progressStr += "="
+			progressSpace -= 1
+		} else {
+			progressStr += " "
+		}
+	}
+	progressStr += "]"
+	return progressStr
 }
