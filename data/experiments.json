@@ -1,0 +1,46 @@
+{ 
+   "buckets": [
+   {
+     "label": "Same Subnet With Quorums",
+     "node_pairs": [["1.1", "1.1"], ["1.1", "1.2"], ["1.1", "1.3"], ["1.2", "1.1"], ["1.2", "1.2"], ["1.2", "1.3"], ["1.3", "1.1"], ["1.3", "1.2"], ["1.3", "1.3"]],
+	 "quorum_sizes": [2, 3],
+	 "histogram": true,
+	 "windowed_latency_aggregation": false
+   }, 
+   {
+     "label": "Same Subnet",
+     "node_pairs": [["1.1", "1.2"], ["1.1", "1.3"], ["1.2", "1.1"], ["1.2", "1.3"], ["1.3", "1.1"], ["1.3", "1.2"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   },
+   {
+     "label": "Talking to self",
+     "node_pairs": [["1.1", "1.1"], ["1.2", "1.2"], ["1.3", "1.3"], ["1.4", "1.4"], ["1.5", "1.5"], ["1.6", "1.6"], ["2.1", "2.1"], ["3.1", "3.1"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   },
+   {
+     "label": "Cross AZ",
+     "node_pairs": [["1.1", "1.5"], ["1.1", "1.6"], ["1.2", "1.5"], ["1.2", "1.6"], ["1.3", "1.5"], ["1.3", "1.6"], ["1.5", "1.2"], ["1.5", "1.1"], ["1.6", "1.2"], ["1.6", "1.1"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   },
+   {
+     "label": "Cross Subnet",
+     "node_pairs": [["1.1", "1.4"], ["1.2", "1.4"], ["1.3", "1.4"], ["1.4", "1.2"], ["1.4", "1.3"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   },
+   {
+     "label": "Cross Region East-East",
+     "node_pairs": [["1.1", "2.1"], ["1.2", "2.1"], ["1.3", "2.1"],["1.4", "2.1"], ["1.5", "2.1"], ["1.6", "2.1"], ["2.1", "1.1"], ["2.1", "1.2"], ["2.1", "1.3"], ["2.1", "1.4"], ["2.1", "1.5"], ["2.1", "1.6"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   },
+   {
+     "label": "Cross Region East1-West",
+     "node_pairs": [["1.1", "3.1"], ["1.2", "3.1"], ["1.3", "3.1"], ["1.4", "3.1"], ["1.5", "3.1"], ["1.6", "3.1"], ["3.1", "1.1"], ["3.1", "1.2"], ["3.1", "1.3"], ["3.1", "1.4"], ["3.1", "1.5"], ["3.1", "1.6"]],
+	 "histogram": true,
+	 "windowed_latency_aggregation": true
+   }]
+}
