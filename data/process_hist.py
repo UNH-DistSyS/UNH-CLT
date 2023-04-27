@@ -74,10 +74,10 @@ parser.add_argument(
     "--ymax", help="The maximum value of the y axis", type=int, default=None
 )
 parser.add_argument(
-    "--fig-width", help="The width of the figure in inches", type=int, required=True
+    "--fig-width", help="The width of the figure in inches", type=float, required=True
 )
 parser.add_argument(
-    "--fig-height", help="The height of the figure in inches", type=int, required=True
+    "--fig-height", help="The height of the figure in inches", type=float, required=True
 )
 parser.add_argument(
     "--x-axis-scalar", help="An amount the multiply the x axis by", type=float, default=1
@@ -114,8 +114,8 @@ print(f"Output path: {output_path}")
 if files != None:
     fig = plt.figure(layout="constrained")
     if args.title is not None:
-        # pass
-        plt.title(args.title)
+        pass
+        # plt.title(args.title)
     histCount = 0
     for filename in files:
         assert os.path.exists(filename)

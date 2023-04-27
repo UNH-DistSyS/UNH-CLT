@@ -4,7 +4,7 @@ VAR_HISTOGRAM_FLAGS = --data-type histogram --plot-type scatter --xlabel "RTT La
 VAR_CDF_FLAGS = --data-type cdf --plot-type line --xlabel "RTT Latency (μs)" --ylabel "fraction of observations"
 VAR_BOXPLOT_FLAGS = --plot-type boxplot --data-type boxplot --ylabel "latency (μs)"
 VAR_DEFAULT_SIZE = --fig-width 4 --fig-height 4
-VAR_WIDE_SIZE = --fig-width 9 --fig-height 4
+VAR_WIDE_SIZE = --fig-width 9 --fig-height 2
 VAR_WIDE_LATENCY_ymax = --ymax 2000
 
 SHELL = /bin/bash -x
@@ -20,7 +20,7 @@ all_figures:
 ready_figures:
 	cd figures/all && find . -name "*.pdf" -exec rm {} \; && find .. -name "*.pdf" -exec cp {} . \; && find . -name "*.pdf" -exec basename {} \; | xargs -n 1 printf '\includegraphics[width=\\columnwidth]{figures/processed_latency_figures/%s}\n' | sort > all_figures.tex;
 
-VAR_FIG1_Y_LIM = --ymin 200 --ymax 1500
+VAR_FIG1_Y_LIM = --ymin 200 --ymax 1400
 VAR_FIG2_Y_LIM = --ymin 200 --ymax 800
 
 figures/aws/aws_fig1.pdf: ./process_hist.py Makefile
@@ -100,18 +100,20 @@ figure_7.pdf: ./process_hist.py Makefile
 data_processing: ../bin/processing aws_data azure_data gcp_data
 
 VAR_PROCESSING_DEFAULT_ARGS = -experiments_json ./experiments.json
+VAR_SUFFIX_DISKIO=_100pings_2vcpu8GB_1024bytes
+VAR_SUFFIX_NODISKIO=_nodiskio_2vcpu_8GBRam_1024bytes_100pings
 
 aws_data: ./experiments.json
-	../bin/processing -csvdir data/raw_aws_6hr_100pings_2vcpu8GB_1024bytes $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/aws
+	../bin/processing -csvdir data/raw_aws_6hr_nodiskio_2vcpu_8GBRam_1024bytes_100pings $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/aws
 
 aws_data_m5_large: ./experiments.json
 	../bin/processing -csvdir data/raw_aws_10min_100pings_m5large_1024bytes $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/aws_m5large
 
 azure_data: ./experiments.json
-	../bin/processing -csvdir data/raw_azure_6hrs_100pings_2vcpu8GB_1024bytes $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/azure
+	../bin/processing -csvdir data/raw_azure_6hr_nodiskio_2vcpu_8GBRam_1024bytes_100pings $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/azure
 
 gcp_data: ./experiments.json
-	../bin/processing -csvdir data/raw_gcp_6hr_100pings_2vcpu8GB_1024bytes $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/gcp
+	../bin/processing -csvdir data/raw_gcp_6hr_nodiskio_2vcpu_8GBRam_1024bytes_100pings $(VAR_PROCESSING_DEFAULT_ARGS) -outdir processed_data/gcp
 
 different_payload_processing: ./experiments.json
 	for cloud in aws azure gcp ; do  \
