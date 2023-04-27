@@ -30,12 +30,13 @@ func main() {
 		fmt.Println("Error parsing JSON:", err)
 		return
 	}
-	bucketCount := 0
+
+	numOutputs := 0
 	for _, bucket := range buckets {
 		if bucket.QuorumSizes == nil {
-			bucketCount += 1
+			numOutputs += 1
 		} else {
-			bucketCount += 2
+			numOutputs += len(bucket.QuorumSizes)
 		}
 	}
 
@@ -45,13 +46,15 @@ func main() {
 		return
 	}
 
-	windowedAggregators := make(map[string]*data_processing.WindowAggregator, bucketCount)
-	histograms := make(map[string]*data_processing.Histogram, bucketCount)
+	windowedAggregators := make(map[string]*data_processing.WindowAggregator, numOutputs)
+	histograms := make(map[string]*data_processing.Histogram, numOutputs)
 
 	pairsToHistograms := make(map[string][]*data_processing.Histogram)
 	pairsToWindowAggregators := make(map[string][]*data_processing.WindowAggregator)
-	quorumDescriptions := make(map[string][]*data_processing.QuorumDescription)
+
+	qdLists := make(map[string][][]*data_processing.QuorumDescription)
 	for _, bucket := range buckets {
+		quorumDescriptions := make(map[string][]*data_processing.QuorumDescription)
 		fmt.Println(bucket.Label)
 		fmt.Println(bucket.NodePairs)
 
@@ -112,10 +115,19 @@ func main() {
 					}
 				}
 			}
+
+			for nodeId, qds := range quorumDescriptions {
+				if _, exists := qdLists[nodeId]; exists {
+					qdLists[nodeId] = append(qdLists[nodeId], qds)
+				} else {
+					qdLists[nodeId] = make([][]*data_processing.QuorumDescription, 0)
+					qdLists[nodeId] = append(qdLists[nodeId], qds)
+				}
+			}
 		}
 	}
 
-	err, _, epochTime := parseCSVFilesParallel(*csvdir, pairsToHistograms, pairsToWindowAggregators, quorumDescriptions)
+	err, _, epochTime := parseCSVFilesParallel(*csvdir, pairsToHistograms, pairsToWindowAggregators, qdLists)
 	if err != nil {
 		fmt.Println("Error parsing CSV:", err)
 		return
@@ -130,8 +142,12 @@ func main() {
 		if !bucket.DoHistogram {
 			continue
 		}
+		fmt.Println("Looking at", bucket.Label)
 
 		for _, fnStub := range bucket.GetFileNameStubs() {
+			if histograms[fnStub] != nil {
+				fmt.Println("histogram has", histograms[fnStub].Count(), "size")
+			}
 			if histograms[fnStub] != nil && histograms[fnStub].Count() > 0 {
 				fmt.Println("Saving summary statistics and latency histogram data for", bucket.Label)
 
@@ -219,7 +235,7 @@ func printSummaryStatistics(file *os.File, label string, hist *data_processing.H
 	fmt.Fprintf(file, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 }
 
-func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][]*data_processing.QuorumDescription) (error, []string, int) {
+func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]*data_processing.Histogram, pairsToWinAggregators map[string][]*data_processing.WindowAggregator, quorumDescriptions map[string][][]*data_processing.QuorumDescription) (error, []string, int) {
 	var filenames []string
 
 	// Walk the directory and get all CSV file names
@@ -333,13 +349,15 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 					wa.Add((startTime)/1000, latency)
 				}
 
-				if qds, exists := quorumDescriptions[record[0]]; exists {
+				if qdList, exists := quorumDescriptions[record[0]]; exists {
 					if err != nil {
 						continue
 					}
 
-					for _, qd := range qds {
-						qd.AddQuorumLatency(latency, round, record[2])
+					for _, qds := range qdList {
+						for _, qd := range qds {
+							qd.AddQuorumLatency(latency, round, record[2])
+						}
 					}
 				}
 
@@ -353,13 +371,14 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 
 			processedFiles += 1
 
-			fmt.Printf("\r Processed: %d/%d: %s", processedFiles, numFiles, getProgressBarStr(50, float64(processedFiles)/float64(numFiles)))
+			fmt.Printf("\rProcessed: %d/%d: %s", processedFiles, numFiles, getProgressBarStr(50, float64(processedFiles)/float64(numFiles)))
 			<-semaphore
 			wg.Done()
 		}(fn)
 	}
 
 	wg.Wait()
+	fmt.Println("\nDone processing CSVs. Computing statistics")
 	return nil, filenames, epochTimeMs
 }
 

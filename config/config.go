@@ -39,10 +39,11 @@ type Config struct {
 	RequestTimeoutMs       int `json:"request_timeout_ms"`       // request timeout on server side
 
 	//Data output variables
-	CsvPrefix      string `json:"csv_prefix"`       //configurable prefix for output csv data files
-	RowOutputLimit int    `json:"row_output_limit"` //configurable paramater for limit on number of output rows in csv files
-	HistoryDir     string `json:"history_dir"`      //configurable history file dir
-	Compress       bool   `json:"compress"`         //whether to compress to GZip
+	CsvPrefix         string `json:"csv_prefix"`           //configurable prefix for output csv data files
+	CSVRowOutputLimit int    `json:"csv_row_output_limit"` //configurable limit on number of output rows in csv files
+	MemRowOutputLimit int    `json:"mem_row_output_limit"` //configurable limit on number of output rows stored in memory before flushing to disc
+	HistoryDir        string `json:"history_dir"`          //configurable history file dir
+	Compress          bool   `json:"compress"`             //whether to compress to GZip
 }
 
 func MakeDefaultConfig() *Config {
@@ -61,7 +62,8 @@ func MakeDefaultConfig() *Config {
 	config.ClusterMembership.RefreshIdsFromAddresses()
 	config.HistoryDir = DEFAULT_HISTORY_DIR
 	config.CsvPrefix = "test"
-	config.RowOutputLimit = 2000000
+	config.CSVRowOutputLimit = 2000000
+	config.MemRowOutputLimit = 2000000
 	config.Compress = false
 	return config
 }

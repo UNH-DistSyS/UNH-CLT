@@ -12,7 +12,7 @@
         }
     },
     "payload_size":1024,
-    "testing_rate_s":50,
+    "testing_rate_s":300,
     "self_loop":true,
     "chan_buffer_size": 1024,
     "op_dispatch_concurrency": 255,
@@ -20,5 +20,7 @@
     "round_timeout_ms": 9500,
     "request_timeout_ms": 14550,
     "csv_prefix": "testing",
-    "row_output_limit": 200000
+    "csv_row_output_limit": 200000,
+    "mem_row_output_limit": 20000000,
+    "testing_duration_minutes": 20
 }
