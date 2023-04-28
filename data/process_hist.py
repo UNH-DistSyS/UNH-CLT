@@ -3,9 +3,22 @@
 from typing import Optional
 from scipy.stats import sem
 import matplotlib.pyplot as plt
+import matplotlib.markers as plt_markers
 import argparse
 import numpy as np
 import os
+
+cloud_markers = {
+    "aws": "o",
+    "azure": "s",
+    "gcp": "p"
+}
+
+cloud_colors = {
+    "aws": "orange",
+    "azure": "blue",
+    "gcp": "green"
+}
 
 
 def load_csv_histogram(filename):
@@ -68,10 +81,10 @@ parser.add_argument(
     "--ylabel", help="The y axis label", type=str, required=True
 )
 parser.add_argument(
-    "--ymin", help="The minimum value of the y axis", type=int, default=None
+    "--ymin", help="The minimum value of the y axis", type=float, default=None
 )
 parser.add_argument(
-    "--ymax", help="The maximum value of the y axis", type=int, default=None
+    "--ymax", help="The maximum value of the y axis", type=float, default=None
 )
 parser.add_argument(
     "--fig-width", help="The width of the figure in inches", type=float, required=True
@@ -83,8 +96,15 @@ parser.add_argument(
     "--x-axis-scalar", help="An amount the multiply the x axis by", type=float, default=1
 )
 parser.add_argument(
+    "--enable-cloud-markers", help="Use different markers for each cloud, determined by series name.", default=False, action='store_true'
+)
+parser.add_argument(
+    "--legend-title", help="The title of the legend", default="Cloud", type=str,
+)
+parser.add_argument(
     "files", nargs="*", help="The histogram files to include in the plot."
 )
+
 
 
 args = parser.parse_args()
@@ -169,16 +189,27 @@ if files != None:
 
         match plot_type:
             case "scatter":
-                series = plt.scatter(x, y)
+                extra_args = dict()
+                if args.enable_cloud_markers and args.dir_labels is not None:
+                    cloud_name = dir_label_n(filename, args.dir_labels)
+                    extra_args["s"] = 10 # set marker size
+                    extra_args["marker"] = cloud_markers.get(cloud_name) or "o"
+                    extra_args["c"] = cloud_colors.get(cloud_name)
+                series = plt.scatter(x, y, **extra_args)
                 plt.ticklabel_format(axis='both', style='plain')
             case "line":
                 extra_args = dict()
                 if args.dir_labels is not None:
-                    extra_args["label"] = dir_label_n(filename, args.dir_labels)
+                    cloud_name = dir_label_n(filename, args.dir_labels)
+                    extra_args["color"] = cloud_colors.get(cloud_name)
+                    extra_args["label"] = cloud_name
                 cur_min, cur_max = plt.ylim()
-                if cur_min == 0:
-                    cur_min = np.min(y)
-                plt.ylim(top=max(cur_max, ymax or np.max(y)), bottom=min(cur_min, ymin if ymin is not None else np.min(y)))
+                if args.data_type == "cdf":
+                    plt.ylim(top=max(cur_max, ymax or np.max(y)), bottom=ymin if ymin is not None else np.min(y))
+                else:
+                    if cur_min == 0:
+                        cur_min = np.min(y)
+                    plt.ylim(top=max(cur_max, ymax or np.max(y)), bottom=min(cur_min, ymin if ymin is not None else np.min(y)))
                 series = plt.plot(x, y, **extra_args)
                 plt.ticklabel_format(axis='both', style='plain')
             case "bar":
@@ -205,7 +236,7 @@ if files != None:
                 showcaps=True,
             )
         else:
-            plt.legend(title="Cloud")
+            plt.legend(title=args.legend_title)
     fig.set_figheight(args.fig_height)
     fig.set_figwidth(args.fig_width)
     plt.savefig(output_path, pad_inches=0)
