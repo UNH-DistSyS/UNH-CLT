@@ -21,9 +21,10 @@ import (
  **********************************************************************************************************************/
 
 var testPrefix = "test"
+var roundNum = uint32(0)
 
-func CreateMeasurement(listSizeTestParam int) *Measurement {
-	return NewMeasurement(ids.GetIDFromFlag(), testPrefix, listSizeTestParam, false)
+func CreateMeasurement(memListSizeTestParam, csvListSizeTestParam int) *Measurement {
+	return NewMeasurement(ids.GetIDFromFlag(), testPrefix, memListSizeTestParam, csvListSizeTestParam, false)
 }
 
 // Produces random amount of "time" between
@@ -41,9 +42,10 @@ func DoMeasurement(m *Measurement, remoteId *ids.ID) (int64, int64) {
 	e := s + SimulateWork()
 
 	//add m
-	m.AddMeasurement(uint64(100), remoteId, s, e)
+	m.AddMeasurement(roundNum, remoteId, s, e)
 	s -= START_EPOCH
 	e -= START_EPOCH
+	roundNum += 1
 	return s, e
 }
 
@@ -53,11 +55,11 @@ func DoMeasurement(m *Measurement, remoteId *ids.ID) (int64, int64) {
 
 func TestNewMeasurement(t *testing.T) {
 	listSizeTestParam := 10
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 	log.Debugf("New Measurement: \n\tNodeId: %d,\n\tcsvPrefix: %s, \n\tlistSize: %d\n", m.thisNodeId.Int(), m.prefix, len(m.data))
 
 	assert.Equal(t, 0, m.fileCounter, "Measurement structure file counter not initialized to 0")
-	assert.Equal(t, 0, len(m.data), "length of initialized list is: %d, exepcted: %d", len(m.data), 0)
+	assert.Equal(t, 0, len(m.data), "length of initialized list is: %d, expected: %d", len(m.data), 0)
 	m.Close()
 }
 
@@ -71,7 +73,7 @@ func TestEpoch(t *testing.T) {
 func TestAddMeasurementOnce(t *testing.T) {
 	listSizeTestParam := 10
 	fakeNodeId := ids.GetIDFromFlag()
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 
 	s, e := DoMeasurement(m, fakeNodeId)
 
@@ -88,7 +90,7 @@ func TestAddMeasurementOnce(t *testing.T) {
 func TestAddMeasurement100(t *testing.T) {
 	listSizeTestParam := 101
 	fakeNodeId := ids.GetIDFromFlag()
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 
 	for i := 0; i < 100; i++ {
 		s, e := DoMeasurement(m, fakeNodeId)
@@ -103,7 +105,7 @@ func TestAddMeasurement100(t *testing.T) {
 func TestFlushCSV(t *testing.T) {
 	listSizeTestParam := 100
 	fakeNodeId := ids.GetIDFromFlag()
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 
 	for i := 0; i < 120; i++ {
 		DoMeasurement(m, fakeNodeId)
@@ -111,7 +113,7 @@ func TestFlushCSV(t *testing.T) {
 	m.Close()
 
 	assert.Equal(t, 20, len(m.data), "Expected list size %d but got %d\n", 20, len(m.data))
-	assert.Equal(t, 2, m.fileCounter, "Expected file counter size %d but fot %d\n", 1, m.fileCounter)
+	assert.Equal(t, 2, m.fileCounter, "Expected file counter size %d but fot %d\n", 2, m.fileCounter)
 
 	//sleep to allow time to write file
 	time.Sleep(time.Second * 1)
@@ -128,13 +130,12 @@ func TestFlushCSV(t *testing.T) {
 	rows, _ := r.ReadAll()
 	assert.Equal(t, listSizeTestParam, len(rows), "error: len of csv file is %d but should be %d\n", len(rows), listSizeTestParam)
 
-	m.Close()
 }
 
 func TestFlushGZip(t *testing.T) {
 	listSizeTestParam := 100
 	fakeNodeId := ids.GetIDFromFlag()
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 	m.compress = true
 
 	var all_measures []string
@@ -173,7 +174,7 @@ func TestFlushGZip(t *testing.T) {
 func TestFlushGZipMultiple(t *testing.T) {
 	listSizeTestParam := 100
 	fakeNodeId := ids.GetIDFromFlag()
-	m := CreateMeasurement(listSizeTestParam)
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam)
 	m.compress = true
 
 	var all_measures []string
@@ -183,10 +184,11 @@ func TestFlushGZipMultiple(t *testing.T) {
 		DoMeasurement(m, fakeNodeId)
 		all_measures = append(all_measures, m.data[index].String())
 	}
+	time.Sleep(time.Second * 1)
 	m.Close()
 
 	time.Sleep(time.Second * 1)
-	assert.Equal(t, 2, m.fileCounter, "Expected file counter size %d but got %d\n", 1, m.fileCounter)
+	assert.Equal(t, 2, m.fileCounter, "Expected file counter size %d but got %d\n", 2, m.fileCounter)
 
 	f1, err := os.Open(DIRECTORY + "/" + testPrefix + "_0.csv.gz")
 	assert.Equal(t, nil, err, "error: could not find csv file with appropriate name in current directory\n")
@@ -206,7 +208,7 @@ func TestFlushGZipMultiple(t *testing.T) {
 	//compare i:i+1 to ignore header from compressed file
 	//splitting on "\n" will also add an empty last element, which we'll ignore
 	for i := 1; i < len(rows)-1; i++ {
-		assert.Equal(t, all_measures[i-1], rows[i], "measurement and output do not match. got: %v, instead of %v", rows[i], all_measures[i-1])
+		assert.Equal(t, all_measures[i-1], rows[i], "measurement and output do not match for row %d. got: %v, instead of %v", i, rows[i], all_measures[i-1])
 	}
 
 	f2, err := os.Open(DIRECTORY + "/" + testPrefix + "_1.csv.gz")
@@ -227,7 +229,70 @@ func TestFlushGZipMultiple(t *testing.T) {
 	//splitting on "\n" will also add an empty last element, which we'll ignore
 	for i := 1; i < len(rows)-1; i++ {
 		index := i + listSizeTestParam - 1
-		assert.Equal(t, all_measures[index], rows[i], "measurement and output do not match. got: %v, instead of %v", rows[i], all_measures[index])
+		assert.Equal(t, all_measures[index], rows[i], "measurement and output do not match for row %d. got: %v, instead of %v", i, rows[i], all_measures[index])
+	}
+
+}
+
+func TestFlushGZipMultiple2(t *testing.T) {
+	listSizeTestParam := 100
+	fakeNodeId := ids.GetIDFromFlag()
+	m := CreateMeasurement(listSizeTestParam, listSizeTestParam/2)
+	m.compress = true
+
+	var all_measures []string
+
+	for i := 0; i < 110; i++ {
+		index := i % (listSizeTestParam)
+		DoMeasurement(m, fakeNodeId)
+		all_measures = append(all_measures, m.data[index].String())
+	}
+	time.Sleep(time.Second * 1)
+	m.Close()
+
+	time.Sleep(time.Second * 1)
+	assert.Equal(t, 3, m.fileCounter, "Expected file counter size %d but got %d\n", 3, m.fileCounter)
+
+	f1, err := os.Open(DIRECTORY + "/" + testPrefix + "_0.csv.gz")
+	assert.Equal(t, nil, err, "error: could not find csv file with appropriate name in current directory\n")
+	defer f1.Close()
+
+	gz, err := gzip.NewReader(f1)
+	assert.Equal(t, nil, err, "error: unable to create gzip reader for file %v\n", f1)
+	defer gz.Close()
+
+	var buf bytes.Buffer
+
+	_, err = io.Copy(&buf, gz)
+	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+
+	rows := strings.Split(buf.String(), "\n")
+
+	//compare i:i+1 to ignore header from compressed file
+	//splitting on "\n" will also add an empty last element, which we'll ignore
+	for i := 1; i < len(rows)-1; i++ {
+		assert.Equal(t, all_measures[i-1], rows[i], "measurement and output do not match for row %d. got: %v, instead of %v", i, rows[i], all_measures[i-1])
+	}
+
+	f2, err := os.Open(DIRECTORY + "/" + testPrefix + "_1.csv.gz")
+	assert.Equal(t, nil, err, "error: could not find csv file with appropriate name in current directory\n")
+	defer f1.Close()
+
+	gz, err = gzip.NewReader(f2)
+	assert.Equal(t, nil, err, "error: unable to create gzip reader for file %v\n", f2)
+	defer gz.Close()
+
+	buf.Reset()
+	_, err = io.Copy(&buf, gz)
+	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+
+	rows = strings.Split(buf.String(), "\n")
+
+	//compare i:i+1 to ignore header from compressed file
+	//splitting on "\n" will also add an empty last element, which we'll ignore
+	for i := 1; i < len(rows)-1; i++ {
+		index := i + listSizeTestParam/2 - 1
+		assert.Equal(t, all_measures[index], rows[i], "measurement and output do not match for row %d. got: %v, instead of %v", i, rows[i], all_measures[index])
 	}
 
 }

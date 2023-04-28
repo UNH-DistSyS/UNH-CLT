@@ -345,6 +345,10 @@ func parseCSVFilesParallel(directoryPath string, pairsToHistograms map[string][]
 					hist.Add(latency)
 				}
 
+				if latency > 800000 {
+					fmt.Printf("%s: %s -> %s: %d microseconds\n", record[1], record[0], record[2], latency)
+				}
+
 				for _, wa := range pairsToWinAggregators[nodePairStr] {
 					wa.Add((startTime)/1000, latency)
 				}

@@ -39,9 +39,10 @@ type ConfigMsg struct {
 	TestingDurationMinute int
 	C                     chan ReplyToMaster
 
-	CsvPrefix      string
-	RowOutputLimit int
-	Compress       bool
+	CsvPrefix         string
+	CSVRowOutputLimit int
+	MemRowOutputLimit int
+	Compress          bool
 
 	CommunicationTimeoutMs int
 }
@@ -53,7 +54,8 @@ func NewConfigMsg(cfg *config.Config) ConfigMsg {
 	c.SelfLoop = cfg.SelfLoop
 	c.Nodes = cfg.ClusterMembership.Addrs
 	c.TestingDurationMinute = cfg.TestingDurationMinute
-	c.RowOutputLimit = cfg.RowOutputLimit
+	c.CSVRowOutputLimit = cfg.CSVRowOutputLimit
+	c.MemRowOutputLimit = cfg.MemRowOutputLimit
 	c.CsvPrefix = cfg.CsvPrefix
 	c.Compress = cfg.Compress
 	c.CommunicationTimeoutMs = cfg.CommunicationTimeoutMs
@@ -61,7 +63,7 @@ func NewConfigMsg(cfg *config.Config) ConfigMsg {
 }
 
 func (c ConfigMsg) String() string {
-	return fmt.Sprintf("ConfigMsg {PayloadSize=%d, TestingRate=%dper second, selfLoop=%t, Nodes=%v, RowOutputLimit=%d}", c.PayLoadSize, c.TestingRateS, c.SelfLoop, c.Nodes, c.RowOutputLimit)
+	return fmt.Sprintf("ConfigMsg {PayloadSize=%d, TestingRate=%dper second, selfLoop=%t, Nodes=%v, CSVRowOutputLimit=%d, MemRowOutputLimit=%d}", c.PayLoadSize, c.TestingRateS, c.SelfLoop, c.Nodes, c.CSVRowOutputLimit, c.MemRowOutputLimit)
 }
 
 type StartLatencyTest struct {
@@ -79,7 +81,7 @@ type StopLatencyTest struct {
 type Ping struct {
 	Payload     []byte
 	SenderId    ids.ID
-	RoundNumber uint64
+	RoundNumber uint32
 }
 
 func (p Ping) String() string {
@@ -89,7 +91,7 @@ func (p Ping) String() string {
 type Pong struct {
 	Payload        []byte
 	ReplyingNodeId ids.ID
-	RoundNumber    uint64
+	RoundNumber    uint32
 }
 
 func (p Pong) String() string {

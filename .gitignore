@@ -10,6 +10,11 @@
 .DS_Store
 /bin/master
 /bin/node
+/bin/processing
+/tools/deploy/*.txt
+/tools/deploy/*.tar
+/tools/deploy/*.json
+/tools/deploy/*.pem
 **/.terraform
 **/.terraform.lock.hcl
 **/terraform.tfstate

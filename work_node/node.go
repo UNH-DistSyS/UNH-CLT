@@ -22,7 +22,7 @@ type Node struct {
 	id                       *ids.ID
 	mu                       sync.Mutex
 	muRand                   sync.Mutex
-	idx                      uint64
+	idx                      uint32
 	stopCh                   chan bool
 	closeCh                  chan bool
 	recorded                 uint64
@@ -85,7 +85,8 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 	n.cfg.TestingDurationMinute = msg.TestingDurationMinute
 	n.cfg.Compress = msg.Compress
 	n.cfg.CsvPrefix = msg.CsvPrefix
-	n.cfg.RowOutputLimit = msg.RowOutputLimit
+	n.cfg.CSVRowOutputLimit = msg.CSVRowOutputLimit
+	n.cfg.MemRowOutputLimit = msg.MemRowOutputLimit
 	n.cfg.CommunicationTimeoutMs = msg.CommunicationTimeoutMs
 	n.cfg.ClusterMembership.RefreshIdsFromAddresses()
 	n.mu.Unlock()
@@ -100,7 +101,7 @@ func (n *Node) HandleConfigMsg(ctx context.Context, msg messages.ConfigMsg) {
 func (n *Node) HandleStartLatencyTestMsg(ctx context.Context, msg messages.StartLatencyTest) {
 	log.Infof("Node %v trying to start", n.id)
 	n.mu.Lock()
-	n.measurement = measurement.NewMeasurement(n.id, n.cfg.CsvPrefix+"_"+n.id.String(), n.cfg.RowOutputLimit, n.cfg.Compress)
+	n.measurement = measurement.NewMeasurement(n.id, n.cfg.CsvPrefix+"_"+n.id.String(), n.cfg.MemRowOutputLimit, n.cfg.CSVRowOutputLimit, n.cfg.Compress)
 	if n.cfg.TestingRateS == 0 {
 		// hasn't received cfg yet, wait instead
 		log.Errorf("starting with nil cfg")
@@ -184,7 +185,7 @@ func (n *Node) senderTicker() {
 	}
 }
 
-func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bool {
+func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint32) bool {
 	log.Debugf("Node %s is sending ping %v", n.id, roundnumber)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(n.cfg.CommunicationTimeoutMs)*time.Millisecond)
 	defer cancel()
@@ -215,7 +216,7 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 		select {
 		case pongRaw := <-respChan:
 			pong := pongRaw.Body.(messages.Pong)
-			n.handlePong(startTimeMicroseconds, pong)
+			n.handlePong(startTimeMicroseconds, &pong)
 			receivedResponses += 1
 			if expectedResponses == receivedResponses {
 				return true
@@ -228,14 +229,14 @@ func (n *Node) broadcastPing(startTimeMicroseconds int64, roundnumber uint64) bo
 	}
 }
 
-func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg messages.Pong) {
+func (n *Node) handlePong(startTimeMicroseconds int64, pongMsg *messages.Pong) {
 
 	endTimeMicroseconds := time.Now().UnixMicro()
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.recorded = utils.Uint64Max(n.recorded, pongMsg.RoundNumber) //not necessary now that measurement added, but tests depend on it
+	n.recorded = utils.Uint64Max(n.recorded, uint64(pongMsg.RoundNumber)) //not necessary now that measurement added, but tests depend on it
 
-	n.measurement.AddMeasurement(pongMsg.RoundNumber, &pongMsg.ReplyingNodeId, startTimeMicroseconds, endTimeMicroseconds)
+	n.measurement.AddMeasurement(pongMsg.RoundNumber, pongMsg.ReplyingNodeId, startTimeMicroseconds, endTimeMicroseconds)
 }
 
 func (n *Node) ReturnRecorded() uint64 {
