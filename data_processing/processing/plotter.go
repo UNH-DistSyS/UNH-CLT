@@ -17,7 +17,7 @@ func PlotHistogram(hist *data_processing.Histogram, filename, title string, norm
 		StrokeWidth: 1,
 	}
 
-	// Prepare data for the histogram
+	// Prepare writeup_figures for the histogram
 	var values []chart.Value
 	data := hist.GetHistogram()
 	barWidth := (width / len(data)) - 4
@@ -33,7 +33,7 @@ func PlotHistogram(hist *data_processing.Histogram, filename, title string, norm
 
 	norm := hist.Count()
 	max := 0.0
-	// write the data
+	// write the writeup_figures
 	for i, key := range keys {
 		value := float64(data[key])
 
@@ -125,7 +125,7 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 		StrokeWidth: 1,
 	}
 
-	// Prepare data for the histogram
+	// Prepare writeup_figures for the histogram
 	data := w.GetAverageAggregates()
 	width := 0
 	barWidth := 1
@@ -147,7 +147,7 @@ func PlotAggregatedLatencyOverTime(w *data_processing.WindowAggregator, filename
 
 	max := 0.0
 
-	// write the data
+	// write the writeup_figures
 	for i, key := range keys {
 		value := float64(data[key])
 

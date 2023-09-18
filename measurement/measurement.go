@@ -1,7 +1,7 @@
 package measurement
 
 //Each client is expected to maintain its own Measurement
-//object to update/record data
+//object to update/record writeup_figures
 
 import (
 	"bytes"
@@ -45,7 +45,7 @@ type measurementRow struct {
 	end          int64  //end time, in microseconds
 }
 
-/* When nodes stop, they must call this function to flush remaining data to file */
+/* When nodes stop, they must call this function to flush remaining writeup_figures to file */
 func (m *Measurement) Close() {
 	m.flush(m.data)
 }

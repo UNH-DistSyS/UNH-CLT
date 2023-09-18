@@ -39,7 +39,7 @@ type Config struct {
 	RequestTimeoutMs       int `json:"request_timeout_ms"`       // request timeout on server side
 
 	//Data output variables
-	CsvPrefix         string `json:"csv_prefix"`           //configurable prefix for output csv data files
+	CsvPrefix         string `json:"csv_prefix"`           //configurable prefix for output csv writeup_figures files
 	CSVRowOutputLimit int    `json:"csv_row_output_limit"` //configurable limit on number of output rows in csv files
 	MemRowOutputLimit int    `json:"mem_row_output_limit"` //configurable limit on number of output rows stored in memory before flushing to disc
 	HistoryDir        string `json:"history_dir"`          //configurable history file dir

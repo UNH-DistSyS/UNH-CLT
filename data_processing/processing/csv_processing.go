@@ -21,7 +21,7 @@ var experimentsJson = flag.String("experiments_json", "", "location of JSON file
 var histogramBucketWidth = flag.Int("hb", 5, "microseconds in each histogram bucket")
 var windowWidth = flag.Int("ww", 1000, "milliseconds in each aggregated latency window")
 var crateImages = flag.Bool("images", false, "whether to generate histogram images")
-var trimRawData = flag.Int("trim", 0, "How many rounds to discard at the beginning of each data file")
+var trimRawData = flag.Int("trim", 0, "How many rounds to discard at the beginning of each writeup_figures file")
 
 func main() {
 	flag.Parse()
@@ -137,7 +137,7 @@ func main() {
 		wa.AdjustForEpochTime(epochTime)
 	}
 
-	// Printing histogram data
+	// Printing histogram writeup_figures
 	for _, bucket := range buckets {
 		if !bucket.DoHistogram {
 			continue
@@ -149,7 +149,7 @@ func main() {
 				fmt.Println("histogram has", histograms[fnStub].Count(), "size")
 			}
 			if histograms[fnStub] != nil && histograms[fnStub].Count() > 0 {
-				fmt.Println("Saving summary statistics and latency histogram data for", bucket.Label)
+				fmt.Println("Saving summary statistics and latency histogram writeup_figures for", bucket.Label)
 
 				if *outdir != "" {
 					file, err := os.Create(*outdir + "/stats_" + fnStub + ".txt")
@@ -185,14 +185,14 @@ func main() {
 		}
 	}
 
-	// Printing latency over time data
+	// Printing latency over time writeup_figures
 	for _, bucket := range buckets {
 		if !bucket.DoWindowedLatencyAggregation {
 			continue
 		}
 
 		for _, fnStub := range bucket.GetFileNameStubs() {
-			fmt.Println("Saving windowed latency data for", bucket.Label)
+			fmt.Println("Saving windowed latency writeup_figures for", bucket.Label)
 
 			if *outdir != "" && windowedAggregators[fnStub] != nil {
 				err = windowedAggregators[fnStub].WriteToCSV(*outdir + "/latency_" + fnStub + ".csv")

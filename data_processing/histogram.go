@@ -171,7 +171,7 @@ func (h *Histogram) WriteToCSV(filename string) error {
 	}
 	sort.Ints(keys)
 
-	// write the data
+	// write the writeup_figures
 	for _, key := range keys {
 		value := h.hist[key]
 		row := []string{strconv.Itoa(key), strconv.Itoa(value)}
@@ -201,7 +201,7 @@ func (h *Histogram) GetHistogram() map[int]int {
 	}
 	sort.Ints(keys)
 
-	// write the data
+	// write the writeup_figures
 	for _, key := range keys {
 		value := h.hist[key]
 		truncatedhist[key] = value

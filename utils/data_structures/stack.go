@@ -1,6 +1,6 @@
 package data_structures
 
-// Stack implements the stack data structure backed by single linked list
+// Stack implements the stack writeup_figures structure backed by single linked list
 type Stack struct {
 	top    *stackNode
 	length int

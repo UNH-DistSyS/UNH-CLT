@@ -160,7 +160,7 @@ func TestFlushGZip(t *testing.T) {
 	var buf bytes.Buffer
 
 	_, err = io.Copy(&buf, gz)
-	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+	assert.Equal(t, nil, err, "error: could not read writeup_figures from gzip file\n")
 
 	rows := strings.Split(buf.String(), "\n")
 
@@ -201,7 +201,7 @@ func TestFlushGZipMultiple(t *testing.T) {
 	var buf bytes.Buffer
 
 	_, err = io.Copy(&buf, gz)
-	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+	assert.Equal(t, nil, err, "error: could not read writeup_figures from gzip file\n")
 
 	rows := strings.Split(buf.String(), "\n")
 
@@ -221,7 +221,7 @@ func TestFlushGZipMultiple(t *testing.T) {
 
 	buf.Reset()
 	_, err = io.Copy(&buf, gz)
-	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+	assert.Equal(t, nil, err, "error: could not read writeup_figures from gzip file\n")
 
 	rows = strings.Split(buf.String(), "\n")
 
@@ -264,7 +264,7 @@ func TestFlushGZipMultiple2(t *testing.T) {
 	var buf bytes.Buffer
 
 	_, err = io.Copy(&buf, gz)
-	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+	assert.Equal(t, nil, err, "error: could not read writeup_figures from gzip file\n")
 
 	rows := strings.Split(buf.String(), "\n")
 
@@ -284,7 +284,7 @@ func TestFlushGZipMultiple2(t *testing.T) {
 
 	buf.Reset()
 	_, err = io.Copy(&buf, gz)
-	assert.Equal(t, nil, err, "error: could not read data from gzip file\n")
+	assert.Equal(t, nil, err, "error: could not read writeup_figures from gzip file\n")
 
 	rows = strings.Split(buf.String(), "\n")
 

@@ -91,7 +91,7 @@ func (w *WindowAggregator) WriteToCSV(filename string) error {
 	}
 	sort.Ints(keys)
 
-	// write the data
+	// write the writeup_figures
 	for _, key := range keys {
 		value := w.windows[key]
 		row := []string{strconv.Itoa(key * w.windowWidthMs), strconv.Itoa(value.sum / value.count)}
@@ -113,7 +113,7 @@ func (w *WindowAggregator) GetAverageAggregates() map[int]int {
 	}
 	sort.Ints(keys)
 
-	// write the data
+	// write the writeup_figures
 	for _, key := range keys {
 		value := w.windows[key]
 		avAggregates[key] = value.sum / value.count
