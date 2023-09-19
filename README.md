@@ -18,7 +18,12 @@ size to other nodes, each peer echoes received messages, allowing the sender to 
 itself and all nodes in the cluster. CLT records the data and eventually writes it to a CSV file for processing. 
 CLT also provides some tools for the basic processing of data.
 
-## Cluster Setup
+## CLT Setup
+
+### Compiling CLT
+To build CLT executables, run `make build` command.
+
+### CLT Executables
 
 CLT has three executable files: _master_, _node_, and _processing_. Only the _master_ and _node_ executables are needed to run the experiments.
 - _master_ is a utility that starts and stops the testing. The master uses a JSON configuration file that describes the cluster and experimental parameters to connect to all nodes and instructs them to run an experiment.
@@ -50,9 +55,7 @@ node, carrying 1024 bytes of payload in each message:
   "csv_prefix": "testing",
   "csv_row_output_limit": 20000000,
   "mem_row_output_limit": 20000000,
-  "communication_timeout_ms": 5000,
-  "chan_buffer_size": 1024,
-  "op_dispatch_concurrency": 255
+  "communication_timeout_ms": 5000
 }
 ```
 
@@ -83,6 +86,42 @@ To start the experiment, use the master utility with the following command:
 - `master -start -config=<configFile.json>`
 
   The _master_ utility will connect to all nodes specified in the config file, deliver the configuration parameters, such as communication rate and payload size, and struct the nodes to start the experiment. 
+
+### Processing the Data
+
+Coming soon
+
+## Cloud Latency Report (March 2023)
+In March 2023, we deployed CLT in three public clouds - Azure, AWS, and GCP. The deployment topology is shown below: 
+![CLT Deployement in the Cloud](/writeup_figures/deployement.png)
+
+We focused on testing latency between nodes/processes in the same region, although we performed some measurements 
+across WAN. Nodes 1.1, 1.2, and 1.3 were deployed in the same subnet of the same availability zone. Node 1.4 is in the 
+same AZ as nodes 1.1 - 1.3, but different subnet. Nodes 1.5 and 1.6 are in different AZs of the same region. We also 
+used nodes 2.1 and 3.1 in different regions.
+
+In each cloud we used smaller 2 vCPU VMs with 8 GB of RAM. While these VMs are on a smaller side, they represent more
+popular VM types in each cloud. We deployed CLT on top of Ubuntu 22.04 LTS. 
+
+Figure below shows the summary over a 6-hour run conducted on a weekday:
+![Same-region latency data](/writeup_figures/same-region-summary.png)
+
+A more detailed view at latency distribution (top) and latency between individual nodes (bottom) in the same subnet of the AZ (nodes 1.1 - 1.3):
+![Same subnet latency data](/writeup_figures/same-subnet-cloud-data.png)
+
+Latency distribution across AZs of the same region:
+![Latency between nodes in different AZs of a region](/writeup_figures/cross-az.png)
+
+Latency for different payload sizes:
+![Latency for different payload sizes](/writeup_figures/payload.png)
+
+Latency for quorums:
+![Latency for majority quorum](/writeup_figures/quorum.png)
+
+Cross-region latency:
+![Cross-region latency](/writeup_figures/cross-region.png)
+
+For more data and details, please see the full report (coming soon)
 
 ## Testing Environment
 
